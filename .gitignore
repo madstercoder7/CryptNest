@@ -4,3 +4,5 @@ cryptnest
 env
 pycache
 __pycache__
+*.db
+instance/
