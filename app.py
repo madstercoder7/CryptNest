@@ -69,7 +69,10 @@ class CredentialForm(FlaskForm):
 # Routes
 @app.route('/')
 def home():
-    return redirect(url_for('login'))
+    if try_face_unlock():
+        return redirect(url_for('dashboard'))
+    else:
+        return redirect(url_for('login'))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():

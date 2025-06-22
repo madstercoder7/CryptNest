@@ -40,7 +40,12 @@
         <tr>
             <td>{{ cred.site }}</td>
             <td>{{ cred.username }}</td>
-            <td><input type="password" value="{{ cred.decrypted_password }}" class="form-control" readonly></td>
+            <td>
+                <div class="input-group">
+                    <input type="password" value="{{ cred.decrypted_password }}" class="form-control password-field" readonly>
+                    <button type="button" class="btn btn-outline-secondary toggle-password" onclick="togglePassword(this)">Show</button>
+                </div>
+            </td>
             <td>
                 <form action="{{ url_for('delete_credential', cred_id=cred.id) }}" method="post" class="d-inline">
                     <button class="btn btn-sm btn-danger">Delete</button>
@@ -65,6 +70,21 @@
         input.type = "password";
         button.textContent = "Copied!";
         setTimeout(() => button.textContent = "Copy", 1000);
+    }
+
+    function togglePassword(button) {
+        const input = button.previousElementSibling;
+        if (input.type === "password") {
+            input.type = "text";
+            button.innerText = "Hide";
+            setTimeout(() => {
+                input.type = "password";
+                button.innerText = "Show";
+            }, 10000);
+        } else {
+            input.type = "password";
+            button.innerText = "Show";
+        }
     }
 </script>
 {% endblock %}
