@@ -1,0 +1,70 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2 class="mb-4">CryptNest Vault</h2>
+
+<form action="{{ url_for('dashboard') }}" method="post">
+    {{ form.hidden_tag() }}
+    <div class="row g-2 mb-3">
+        <div class="col-md-3">
+            {{ form.site.label(class="form-label") }}
+            {{ form.site(class="form-control") }}
+        </div>
+        <div class="col-md-3">
+            {{ form.username.label(class="form-label") }}
+            {{ form.username(class="form-control") }}
+        </div>
+        <div class="col-md-3">
+            {{ form.password.label(class="form-label") }}
+            {{ form.password(class="form-control") }}
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            {{ form.submit(class="btn btn-primary w-100") }}
+        </div>
+    </div>
+</form>
+
+<hr class="text-secondary">
+
+<h4>Stored Credentials</h4>
+<table class="table table-dark table-hover">
+    <thead>
+        <tr>
+            <th>Site</th>
+            <th>Username</th>
+            <th>Password</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for cred in credentials %}
+        <tr>
+            <td>{{ cred.site }}</td>
+            <td>{{ cred.username }}</td>
+            <td><input type="password" value="{{ cred.decrypted_password }}" class="form-control" readonly></td>
+            <td>
+                <form action="{{ url_for('delete_credential', cred_id=cred.id) }}" method="post" class="d-inline">
+                    <button class="btn btn-sm btn-danger">Delete</button>
+                </form>
+                <button class="btn btn-sm btn-secondary" onclick="copyToClipboard(this)">Copy</button>
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4">No credentials stored yet</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{{ url_for('logout') }}" class="btn btn-outline-light mt-3">Logout</a>
+
+<script>
+    function copyToClipboard(button) {
+        const input = button.closest('tr').querySelector('input');
+        input.type = 'text';
+        input.select();
+        document.execCommand("copy");
+        input.type = "password";
+        button.textContent = "Copied!";
+        setTimeout(() => button.textContent = "Copy", 1000);
+    }
+</script>
+{% endblock %}
