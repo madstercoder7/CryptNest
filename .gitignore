@@ -1,0 +1,6 @@
+venv
+cryptnest
+.env
+env
+pycache
+__pycache__
