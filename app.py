@@ -70,7 +70,7 @@ class CredentialForm(FlaskForm):
 
 @app.route('/')
 def home():
-    return redirect(url_for('login'))
+    return render_template("landing.html")
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():

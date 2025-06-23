@@ -1,0 +1,172 @@
+{% extends "layout.html" %}
+{% block content %}
+<style>
+    .hero {
+        min-height: 90vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        text-align: center;
+    }
+
+    #typing-text {
+        font-family: monospace;
+        white-space: nowrap;
+        overflow: hidden;
+        border-right: 3px solid #00ff99;
+        animation: blink 0.7s infinite;
+    }
+    
+    @keyframes blink {
+        0%, 100% { border-color: transparent; }
+        50% { border-color: #00ff99; }
+    }
+
+    .quote {
+        font-style: italic;
+        color: #ccc;
+        margin-top: 20px;
+    }
+
+    .btn-glow {
+        box-shadow: 0 0 10px #0f0;
+        transition: 0.3s;
+    }
+
+    .btn-glow:hover {
+        box-shadow: 0 0 20px #0f0;
+        transform: scale(1.05);
+    }
+</style>
+
+<div class="hero">
+    <h1 class="display-5 text-success" id="typing-text"></h1>
+    <p class="quote" id="quote"></p>
+    <div class="mt-4">
+        <a href="{{ url_for('login') }}" class="btn btn-success btn-lg btn-glow me-3">Login</a>
+        <a href="{{ url_for('register') }}" class="btn btn-outline-light btn-lg">Register</a>
+    </div>
+</div>
+
+<script>
+    const text = "🔐Welcome to CryptNest - Your Secure Password Vault";
+    let i = 0;
+    function typeWriter() {
+        if (i < text.length) {
+            document.getElementById("typing-text").innerHTML += text.charAt(i);
+            i++;
+            setTimeout(typeWriter, 50);
+        }
+    }
+    window.onload = typeWriter;
+
+    const quotes = [
+        "Passwords are like underwear: change them often.",
+        "Strong passwords make strong vaults.",
+        "Your pet's name is not a secure password.",
+        "Hackers love lazy passwords.",
+        "Your vault deserves better than 'password123'.",
+        "Secure today, safe tomorrow.",
+        "Guessable passwords are gifts to hackers.",
+        "Don’t make it easy—encrypt it.",
+        "123456 is not a strategy.",
+        "Passwords are secrets. Treat them like gold.",
+        "A good password keeps nightmares away.",
+        "Crack jokes, not passwords.",
+        "Vault up your secrets like a pro.",
+        "Password security is self-care.",
+        "Keep your secrets safer than your snacks.",
+        "Don't let your password be the weakest link.",
+        "Think like a hacker, password like a wizard.",
+        "If it’s easy to remember, it’s easy to hack.",
+        "Your ex’s birthday isn’t a fortress.",
+        "Hackers don’t sleep. Your password shouldn’t either.",
+        "Vaults before faults.",
+        "A strong password today keeps breaches away.",
+        "Guess what? Hackers already guessed it.",
+        "Long passwords = short problems.",
+        "Lock your data like you lock your phone.",
+        "Your vault. Your rules. Your armor.",
+        "Too short to be secure? Add more characters!",
+        "Privacy is priceless. So is a good password.",
+        "Cybersecurity is everyone’s job, starting with your password.",
+        "Passwords are like toothbrushes: don’t share them.",
+        "Your favorite band? Not hacker-proof.",
+        "The FBI called. They want better passwords.",
+        "Your vault’s safety is in your hands.",
+        "A lazy password today, a data breach tomorrow.",
+        "Weak passwords are hacker snacks.",
+        "Passwords should be strong and spicy 🌶️.",
+        "What’s your password? Just kidding—don’t tell me.",
+        "‘LetMeIn’ is not clever anymore.",
+        "A good vault starts with a good lock.",
+        "Keep calm and rotate your passwords.",
+        "Don't be the reason for your own breach.",
+        "Fortify your digital castle with strong keys.",
+        "Even your dog can guess that password.",
+        "Hackers are clever—your passwords should be cleverer.",
+        "Cyber hygiene is the new daily routine.",
+        "Protect like a ninja, type like a wizard.",
+        "‘qwerty’ is a trap.",
+        "Trust no one. Encrypt everything.",
+        "CryptNest: Where your secrets take shelter.",
+        "In passwords we trust.",
+        "Fort Knox didn’t use ‘123456’—neither should you.",
+        "What if hackers knew your favorite movie?",
+        "If your password was a joke, the punchline is data theft.",
+        "Passwords aren't forever. Update them.",
+        "Your secrets deserve armor, not sticky notes.",
+        "Encrypt it or regret it.",
+        "‘password’ is not a password.",
+        "Hack the habit, not your account.",
+        "Keep it locked. Keep it secret.",
+        "Cyber ninjas use strong passwords.",
+        "Make your passwords unpredictable—like plot twists.",
+        "Your account deserves better than ‘iloveyou’.",
+        "Your data is delicious—don’t let hackers feast.",
+        "Choose complexity. Embrace security.",
+        "Passwords: because ‘open sesame’ won’t cut it.",
+        "No more sticky notes—use CryptNest.",
+        "Simple passwords are simply bad.",
+        "Password fatigue? Let CryptNest handle it.",
+        "Your vault is smarter with stronger passwords.",
+        "Don’t type your secrets in plaintext.",
+        "Think password like a passphrase.",
+        "A cracked password is a cracked identity.",
+        "Your data deserves top-tier protection.",
+        "Hackers dream of weak passwords.",
+        "Say goodbye to weak links.",
+        "The dark web loves bad passwords.",
+        "Don't be the 1 in a billion... breached.",
+        "You can’t spell ‘protection’ without a strong password.",
+        "Vaults don’t lie. But weak passwords do.",
+        "Strength isn’t in numbers—it’s in characters.",
+        "Your credentials are VIP. Treat them as such.",
+        "Security isn’t paranoia. It’s power.",
+        "Passwords first. Everything else second.",
+        "Treat passwords like tattoos—unique and permanent (almost).",
+        "The best passwords are the ones only *you* know.",
+        "Even your keyboard is tired of '123456'.",
+        "Digital locks need digital muscles.",
+        "Never underestimate a strong passphrase.",
+        "Your vault is a digital dragon hoard. Guard it.",
+        "Security isn't magic—it’s good password habits.",
+        "Be unpredictable. Be secure.",
+        "Your vault isn’t a diary. Lock it well.",
+        "Passwords: Your last defense, your best friend.",
+        "A weak password opens every wrong door.",
+        "Behind every breach is a bad password.",
+        "CryptNest: Because you're smarter than 'admin'.",
+        "Use entropy like a boss.",
+        "Let your password be complex. Life's already simple.",
+        "Complex is cool. Especially in passwords.",
+        "Passwords are peace of mind in disguise.",
+        "One strong password = infinite peace.",
+        "Good vaults make good neighbors.",
+        "CryptNest: Built for paranoia, loved for peace."
+];
+
+    document.getElementById("quote").innerText = quotes[Math.floor(Math.random() * quotes.length)];
+</script>
+{% endblock %}
