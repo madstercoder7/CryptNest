@@ -10,12 +10,12 @@
             {{ form.site(class="form-control") }}
         </div>
         <div class="col-md-3">
-            {{ form.username.label(class="form-label") }}
-            {{ form.username(class="form-control") }}
+            {{ form.site_username.label(class="form-label") }}
+            {{ form.site_username(class="form-control") }}
         </div>
         <div class="col-md-3">
-            {{ form.password.label(class="form-label") }}
-            {{ form.password(class="form-control") }}
+            {{ form.site_password.label(class="form-label") }}
+            {{ form.site_password(class="form-control") }}
         </div>
         <div class="col-md-3 d-flex align-items-end">
             {{ form.submit(class="btn btn-primary w-100") }}
@@ -39,7 +39,7 @@
         {% for cred in credentials %}
         <tr>
             <td>{{ cred.site }}</td>
-            <td>{{ cred.username }}</td>
+            <td>{{ cred.site_username }}</td>
             <td>
                 <div class="input-group">
                     <input type="password" value="{{ cred.decrypted_password }}" class="form-control password-field" readonly>

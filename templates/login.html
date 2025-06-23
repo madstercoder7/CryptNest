@@ -1,8 +1,17 @@
 {% extends "layout.html" %}
 {% block content %}
 <h2>Login to CryptNest</h2>
+
+<form method="post">
+    <button type="submit" name="face_unlock" value="true" class="btn btn-secondary">Use Face Unlock</button>
+</form>
+
 <form method="post">
     {{ form.hidden_tag() }}
+    <div class="mb-3">
+        {{ form.username.label(class="form-label") }}
+        {{ form.username(class="form-control") }}
+    </div>
     <div class="mb-3">
         {{ form.password.label(class="form-label") }}
         {{ form.password(class="form-control") }}
