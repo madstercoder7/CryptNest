@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, redirect, url_for, flash, request
+from flask import Flask, render_template, redirect, url_for, flash, request, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin, current_user
@@ -8,7 +8,7 @@ from wtforms import PasswordField, SubmitField, StringField
 from wtforms.validators import DataRequired, EqualTo
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
-from face_unlock import capture_and_save_face, verify_face_against_encodings
+from face_unlock import capture_face_temp, move_temp_face_to_user, verify_face_against_encodings
 
 load_dotenv()
 
@@ -75,18 +75,55 @@ def home():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegisterForm()
-    if form.validate_on_submit():
-        if User.query.filter_by(username=form.username.data).first():
-            flash('Username already exists.', 'danger')
-            return redirect(url_for('register'))
-        hashed_pw = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
-        user = User(username=form.username.data, password=hashed_pw)
-        db.session.add(user)
-        db.session.commit()
-        capture_and_save_face(user.id)
-        flash('Registration successful. Please login.', 'success')
-        return redirect(url_for('login'))
-    return render_template('register.html', form=form)
+
+    temp_path = os.path.join("face_data", "temp_face.npy")
+
+    # Only delete temp_face.npy if user is visiting for first time or not captured yet
+    if request.method == 'GET' and not session.get('face_captured'):
+        session.pop('face_captured', None)
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+    # Handle face capture (initial or recapture)
+    if request.method == 'POST' and 'capture_face' in request.form:
+        success = capture_face_temp()
+        if success and os.path.exists(temp_path):
+            session['face_captured'] = True
+            flash("✅ Face captured successfully", "success")
+        else:
+            session.pop('face_captured', None)
+            flash("❌ Face capture failed. Try again.", "danger")
+        return redirect(url_for('register'))
+
+    # Handle registration form submission
+    if request.method == 'POST' and 'submit' in request.form:
+        if form.validate_on_submit():
+            existing_user = User.query.filter_by(username=form.username.data).first()
+            if existing_user:
+                flash("❌ Username already exists. Try another one.", "danger")
+                return redirect(url_for('register'))
+
+            hashed_pw = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
+            user = User(username=form.username.data, password=hashed_pw)
+            db.session.add(user)
+            db.session.commit()
+
+            # Move face file if captured
+            if session.get('face_captured'):
+                try:
+                    move_temp_face_to_user(user.id)
+                    session.pop('face_captured', None)
+                except Exception as e:
+                    print(f"⚠️ Error saving face: {e}")
+                    flash("⚠️ Registered, but face could not be saved.", "warning")
+
+            flash("✅ Registration successful. Please login.", "success")
+            return redirect(url_for('login'))
+        else:
+            flash("❌ Form validation failed. Please check your input.", "danger")
+
+    return render_template("register.html", form=form)
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -130,7 +167,7 @@ def dashboard():
         db.session.commit()
         flash('Credential saved', 'success')
         return redirect(url_for('dashboard'))
-    
+
     credentials = Credential.query.filter_by(user_id=current_user.id).all()
     for cred in credentials:
         cred.decrypted_password = decrypt_password(cred.site_password)
@@ -150,6 +187,7 @@ def delete_credential(cred_id):
 @login_required
 def logout():
     logout_user()
+    session.clear()
     flash("Logged out successfully.", "info")
     return redirect(url_for('login'))
 
