@@ -15,7 +15,13 @@
         </div>
         <div class="col-md-3">
             {{ form.site_password.label(class="form-label") }}
-            {{ form.site_password(class="form-control") }}
+            {{ form.site_password(class="form-control", id="site-password", placeholder="Enter password") }}
+            <div class="mt-2">
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar" id="strength-bar" role="progressbar" style="width: 0%; background-color: #ccc;"></div>
+                </div> 
+                <small class="form-text text-muted mt-1" id="strength-text">Password Strength: <span id="strength-value">-</span></small>
+            </div>    
         </div>
         <div class="col-md-3 d-flex align-items-end">
             {{ form.submit(class="btn btn-primary w-100") }}
@@ -43,7 +49,6 @@
             <td>
                 <div class="input-group">
                     <input type="password" value="{{ cred.decrypted_password }}" class="form-control password-field" readonly>
-                    <p><strong>Password Strength:</strong> <span class="badge bg-info">{{ cred.strength }}</span></p>
                     <button type="button" class="btn btn-outline-secondary toggle-password" onclick="togglePassword(this)">Show</button>
                 </div>
             </td>
@@ -87,5 +92,33 @@
             button.innerText = "Show";
         }
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const passwordInput = document.getElementById('site-password');
+        const strengthValue = document.getElementById('strength-value');
+        const strengthBar = document.getElementById('strength-bar');
+
+        passwordInput.addEventListener('input', () => {
+            const password = passwordInput.value;
+            const { strength, percent, color } = getStrength(password);
+
+            strengthValue.textContent = strength;
+            strengthBar.style.width = percent + '%';
+            strengthBar.style.backgroundColor = color;
+        });
+
+        function getStrength(password) {
+            let score = 0;
+            if (password.length >= 8) score++;
+            if (/[A-Z]/.test(password)) score++;
+            if (/[a-z]/.test(password)) score++;
+            if (/[0-9]/.test(password)) score++;
+            if (/[^A-Za-z0-9]/.test(password)) score++;
+
+            if (score <= 2) return { strength: "Weak", percent: 33, color: "#ff4d4d" };
+            else if (score <= 4) return { strength: "Medium", percent: 66, color: "#ffc107" };
+            else return { strength: "Strong", percent: 100, color: "#00e676" };
+        }
+    });
 </script>
 {% endblock %}
