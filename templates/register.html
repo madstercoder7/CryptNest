@@ -1,8 +1,96 @@
 {% extends "layout.html" %}
 {% block content %}
-<div class="container d-flex justify-content-center align-items-center" style="min-height: 90vh;">
-    <div class="card bg-dark text-light shadow-lg p-4" style="width: 100%; max-width: 450px;">
-        <h3 class="text-center mb-4">📝Register on <span class="text-success">CryptNest</span></h3>
+<style>
+    html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: black;
+        color: #f1f1f1;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .fullscreen-center {
+        min-height: 100vh;
+        padding-top: 70px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: black;
+        overflow: hidden;
+        padding-bottom: 300px;
+    }
+
+    .glass-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-radius: 16px;
+        padding: 2rem;
+        max-width: 450px;
+        width: 100%;
+        box-shadow: 0 0 30px rgba(0, 255, 255, 0.08);
+    }
+
+    .glass-card h3 {
+        text-align: center;
+        margin-bottom: 1.5rem;
+        font-weight: 600;
+        color: #f8f9fa;
+    }
+
+    .glass-card label {
+        color: #bbb;
+        font-size: 0.9rem;
+    }
+
+    .glass-card .form-control {
+        background-color: rgba(255, 255, 255, 0.07);
+        border: 1px solid #444;
+        color: #f1f1f1;
+    }
+
+    .glass-card .form-control::placeholder {
+        color: #888;
+    }
+
+    .glass-card .btn-outline-light,
+    .glass-card .btn-outline-warning {
+        border-color: #aaa;
+        color: #ddd;
+    }
+
+    .glass-card .btn-outline-light:hover,
+    .glass-card .btn-outline-warning:hover {
+        background-color: #111;
+        color: #fff;
+    }
+
+    .glass-card .btn-success {
+        background-color: #00a67e;
+        color: #fff;
+        border: none;
+    }
+
+    .glass-card .btn-success:hover {
+        background-color: #00916d;
+    }
+
+    .glass-card a {
+        color: #0fd;
+        text-decoration: none;
+    }
+
+    .glass-card a:hover {
+        text-decoration: underline;
+    }
+</style>
+
+<div class="fullscreen-center">
+    <div class="glass-card">
+        <h3>📝 Register on <span style="color: #00ffe7;">CryptNest</span></h3>
 
         {% if session.get('face_captured') %}
             <div class="alert alert-success text-center p-2 py-1">✅ Face captured successfully</div>
@@ -23,21 +111,21 @@
             {{ form.hidden_tag() }}
             <div class="mb-3">
                 {{ form.username.label(class="form-label") }}
-                {{ form.username(class="form-control") }}
+                {{ form.username(class="form-control", placeholder="Enter your username") }}
             </div>
             <div class="mb-3">
                 {{ form.password.label(class="form-label") }}
-                {{ form.password(class="form-control") }}
+                {{ form.password(class="form-control", placeholder="Enter your password") }}
             </div>
             <div class="mb-3">
                 {{ form.confirm_password.label(class="form-label") }}
-                {{ form.confirm_password(class="form-control") }}
+                {{ form.confirm_password(class="form-control", placeholder="Confirm your password") }}
             </div>
-            {{ form.submit(render_kw={'class': 'btn btn-success w-100'}) }}
+            {{ form.submit(class="btn btn-success w-100") }}
         </form>
 
         <div class="mt-3 text-center">
-            <small>Already have an account? <a href="{{ url_for('login') }}" class="text-info">Login here</a></small>
+            <small>Already have an account? <a href="{{ url_for('login') }}">Login here</a></small>
         </div>
     </div>
 </div>
