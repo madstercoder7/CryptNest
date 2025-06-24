@@ -1,71 +1,185 @@
 {% extends "layout.html" %}
 {% block content %}
-<h2 class="mb-4">CryptNest Vault</h2>
 
-<form action="{{ url_for('dashboard') }}" method="post">
-    {{ form.hidden_tag() }}
-    <div class="row g-2 mb-3">
-        <div class="col-md-3">
-            {{ form.site.label(class="form-label") }}
-            {{ form.site(class="form-control") }}
-        </div>
-        <div class="col-md-3">
-            {{ form.site_username.label(class="form-label") }}
-            {{ form.site_username(class="form-control") }}
-        </div>
-        <div class="col-md-3">
-            {{ form.site_password.label(class="form-label") }}
-            {{ form.site_password(class="form-control", id="site-password", placeholder="Enter password") }}
-            <div class="mt-2">
-                <div class="progress" style="height: 8px;">
-                    <div class="progress-bar" id="strength-bar" role="progressbar" style="width: 0%; background-color: #ccc;"></div>
-                </div> 
-                <small class="form-text text-muted mt-1" id="strength-text">Password Strength: <span id="strength-value">-</span></small>
-            </div>    
-        </div>
-        <div class="col-md-3 d-flex align-items-end">
-            {{ form.submit(class="btn btn-primary w-100") }}
-        </div>
-    </div>
-</form>
+<style>
+    body {
+        background-color: #0d1117;
+        color: #f0f6fc;
+    }
 
-<hr class="text-secondary">
+    .vault-card {
+        background-color: #161b22;
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 0 30px rgba(0, 255, 255, 0.05);
+    }
 
-<h4>Stored Credentials</h4>
-<table class="table table-dark table-hover">
-    <thead>
-        <tr>
-            <th>Site</th>
-            <th>Username</th>
-            <th>Password</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for cred in credentials %}
-        <tr>
-            <td>{{ cred.site }}</td>
-            <td>{{ cred.site_username }}</td>
-            <td>
-                <div class="input-group">
-                    <input type="password" value="{{ cred.decrypted_password }}" class="form-control password-field" readonly>
-                    <button type="button" class="btn btn-outline-secondary toggle-password" onclick="togglePassword(this)">Show</button>
+    .form-label {
+        color: #8b949e;
+        font-weight: 500;
+    }
+
+    .form-control {
+        background-color: #0d1117;
+        color: #f0f6fc;
+        border: 1px solid #30363d;
+    }
+
+    .form-control:focus {
+        border-color: #58a6ff;
+        box-shadow: 0 0 0 0.1rem rgba(88, 166, 255, 0.3);
+        background-color: #0d1117;
+    }
+
+    .btn-primary {
+        background-color: #238636;
+        border: none;
+    }
+
+    .btn-primary:hover {
+        background-color: #2ea043;
+    }
+
+    .btn-outline-secondary {
+        border: 1px solid #30363d;
+        color: #c9d1d9;
+        background-color: transparent;
+    }
+
+    .btn-outline-secondary:hover {
+        background-color: #30363d;
+    }
+
+    .btn-danger {
+        background-color: #da3633;
+        border: none;
+    }
+
+    .btn-danger:hover {
+        background-color: #f85149;
+    }
+
+    .btn-secondary {
+        background-color: #484f58;
+        border: none;
+    }
+
+    .btn-secondary:hover {
+        background-color: #6e7681;
+    }
+
+    .table {
+        color: #c9d1d9;
+    }
+
+    .table-dark {
+        background-color: transparent;
+    }
+
+    .table-dark th {
+        color: #8b949e;
+        border-color: #30363d;
+        background-color: #161b22;
+    }
+
+    .table-dark td {
+        background-color: #0d1117;
+        border-color: #30363d;
+    }
+
+    .table-dark tbody tr:hover {
+        background-color: #21262d;
+    }
+
+    .progress {
+        background-color: #30363d;
+    }
+
+    .form-text.text-muted {
+        color: #8b949e !important;
+    }
+
+    .btn {
+        border-radius: 6px;
+    }
+
+    .input-group .form-control {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+
+    .input-group .btn {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+</style>
+
+<div class="vault-card">
+    <h2 class="text-info mb-4">🔐 CryptNest Vault</h2>
+
+    <form action="{{ url_for('dashboard') }}" method="post">
+        {{ form.hidden_tag() }}
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                {{ form.site.label(class="form-label") }}
+                {{ form.site(class="form-control") }}
+            </div>
+            <div class="col-md-3">
+                {{ form.site_username.label(class="form-label") }}
+                {{ form.site_username(class="form-control") }}
+            </div>
+            <div class="col-md-3">
+                {{ form.site_password.label(class="form-label") }}
+                {{ form.site_password(class="form-control", id="site-password", placeholder="Enter password") }}
+                <div class="mt-2">
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar" id="strength-bar" role="progressbar" style="width: 0%; background-color: #ccc;"></div>
+                    </div>
+                    <small class="form-text text-muted mt-1" id="strength-text">Password Strength: <span id="strength-value">-</span></small>
                 </div>
-            </td>
-            <td>
-                <form action="{{ url_for('delete_credential', cred_id=cred.id) }}" method="post" class="d-inline">
-                    <button class="btn btn-sm btn-danger">Delete</button>
-                </form>
-                <button class="btn btn-sm btn-secondary" onclick="copyToClipboard(this)">Copy</button>
-            </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="4">No credentials stored yet</td></tr>
-        {% endfor %}
-    </tbody>
-</table>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                {{ form.submit(class="btn btn-primary w-100") }}
+            </div>
+        </div>
+    </form>
 
-<a href="{{ url_for('logout') }}" class="btn btn-outline-light mt-3">Logout</a>
+    <hr class="text-secondary">
+
+    <h4 class="text-info">📃 Stored Credentials</h4>
+    <table class="table table-dark table-hover mt-3">
+        <thead>
+            <tr>
+                <th>Site</th>
+                <th>Username</th>
+                <th>Password</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cred in credentials %}
+            <tr>
+                <td>{{ cred.site }}</td>
+                <td>{{ cred.site_username }}</td>
+                <td>
+                    <div class="input-group">
+                        <input type="password" value="{{ cred.decrypted_password }}" class="form-control password-field" readonly>
+                        <button type="button" class="btn btn-outline-secondary toggle-password" onclick="togglePassword(this)">Show</button>
+                    </div>
+                </td>
+                <td class="d-flex gap-1">
+                    <form action="{{ url_for('delete_credential', cred_id=cred.id) }}" method="post">
+                        <button class="btn btn-sm btn-danger w-100">Delete</button>
+                    </form>
+                    <button class="btn btn-sm btn-secondary w-100" onclick="copyToClipboard(this)">Copy</button>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4">No credentials stored yet</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 
 <script>
     function copyToClipboard(button) {
@@ -120,5 +234,11 @@
             else return { strength: "Strong", percent: 100, color: "#00e676" };
         }
     });
+
+    // Auto logout when closing the tab
+    window.addEventListener('beforeunload', function () {
+        navigator.sendBeacon("{{ url_for('logout') }}");
+    });
 </script>
+
 {% endblock %}
