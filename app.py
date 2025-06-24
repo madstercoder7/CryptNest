@@ -9,6 +9,7 @@ from wtforms.validators import DataRequired, EqualTo
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
 from face_unlock import capture_face_temp, move_temp_face_to_user, verify_face_against_encodings
+from utils import get_password_strength
 
 load_dotenv()
 
@@ -45,6 +46,7 @@ class Credential(db.Model):
     site = db.Column(db.String(100), nullable=False)
     site_username = db.Column(db.String(100), nullable=False)
     site_password = db.Column(db.Text, nullable=False)
+    strength = db.Column(db.String(10))
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
 @login_manager.user_loader
@@ -148,12 +150,15 @@ def login():
 @login_required
 def dashboard():
     form = CredentialForm()
+
     if form.validate_on_submit():
+        password_strength = get_password_strength(form.site_password.data)
         encrypted_pw = encrypt_password(form.site_password.data)
         new_cred = Credential(
             site=form.site.data,
             site_username=form.site_username.data,
             site_password=encrypted_pw,
+            strength=password_strength,
             user_id=current_user.id
         )
         db.session.add(new_cred)

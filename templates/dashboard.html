@@ -43,6 +43,7 @@
             <td>
                 <div class="input-group">
                     <input type="password" value="{{ cred.decrypted_password }}" class="form-control password-field" readonly>
+                    <p><strong>Password Strength:</strong> <span class="badge bg-info">{{ cred.strength }}</span></p>
                     <button type="button" class="btn btn-outline-secondary toggle-password" onclick="togglePassword(this)">Show</button>
                 </div>
             </td>
