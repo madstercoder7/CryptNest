@@ -1,66 +1,123 @@
 {% extends "layout.html" %}
 {% block content %}
 <style>
+    html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background-color: #000 !important;
+        overflow: hidden;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #e0e0e0;
+    }
+
+    .intro-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: black;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        transition: opacity 1s ease;
+    }
+
+    .intro-logo {
+        width: 280px;
+        max-width: 80%;
+        transition: transform 1s ease, opacity 1s ease;
+    }
+
+    .intro-screen.fade-out {
+        opacity: 0;
+        pointer-events: none;
+    }
+
     .hero {
-        min-height: 90vh;
+        opacity: 0;
+        transition: opacity 1s ease;
+        min-height: 100vh;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-direction: column;
         text-align: center;
+        padding: 2rem;
+    }
+
+    .hero-visible {
+        opacity: 1;
     }
 
     #typing-text {
-        font-family: monospace;
+        font-family: 'Courier New', monospace;
+        font-size: 1.6rem;
         white-space: nowrap;
         overflow: hidden;
-        border-right: 3px solid #00ff99;
-        animation: blink 0.7s infinite;
+        border-right: 3px solid #888;
+        animation: blink 0.8s step-start infinite;
+        color: #e0e0e0;
+        background-color: transparent;
+        padding: 10px 0;
     }
-    
+
     @keyframes blink {
         0%, 100% { border-color: transparent; }
-        50% { border-color: #00ff99; }
+        50% { border-color: #888; }
     }
 
     .quote {
         font-style: italic;
-        color: #ccc;
+        color: #aaaaaa;
         margin-top: 20px;
+        font-size: 1rem;
     }
 
-    .btn-glow {
-        box-shadow: 0 0 10px #0f0;
-        transition: 0.3s;
+    .btn-group {
+        margin-top: 2rem;
     }
 
-    .btn-glow:hover {
-        box-shadow: 0 0 20px #0f0;
-        transform: scale(1.05);
+    .btn-dark-outline {
+        border: 1px solid #aaa;
+        color: #eee;
+        background-color: transparent;
+    }
+
+    .btn-dark-outline:hover {
+        background-color: #222222;
+    }
+
+    .btn-solid {
+        background-color: #007bff;
+        border: none;
+        color: #fff;
+    }
+
+    .btn-solid:hover {
+        background-color: #0056b3;
     }
 </style>
 
-<div class="hero">
-    <h1 class="display-5 text-success" id="typing-text"></h1>
+<!-- Splash Intro -->
+<div class="intro-screen" id="intro">
+    <img src="{{ url_for('static', filename='landing_logo.png') }}" class="intro-logo" alt="CryptNest Logo">
+</div>
+
+<!-- Main Hero Content -->
+<div class="hero" id="main-content">
+    <h1 id="typing-text"></h1>
     <p class="quote" id="quote"></p>
-    <div class="mt-4">
-        <a href="{{ url_for('login') }}" class="btn btn-success btn-lg btn-glow me-3">Login</a>
-        <a href="{{ url_for('register') }}" class="btn btn-outline-light btn-lg">Register</a>
+    <div class="btn-group">
+        <a href="{{ url_for('login') }}" class="btn btn-modern btn-dark-outline">Login</a>
+        <a href="{{ url_for('register') }}" class="btn btn-modern btn-dark-outline">Register</a>
     </div>
 </div>
 
 <script>
-    const text = "🔐Welcome to CryptNest - Your Secure Password Vault";
-    let i = 0;
-    function typeWriter() {
-        if (i < text.length) {
-            document.getElementById("typing-text").innerHTML += text.charAt(i);
-            i++;
-            setTimeout(typeWriter, 50);
-        }
-    }
-    window.onload = typeWriter;
-
+    const text = "🔐 Welcome to CryptNest – Your Secure Password Vault";
     const quotes = [
         "Passwords are like underwear: change them often.",
         "Strong passwords make strong vaults.",
@@ -165,8 +222,31 @@
         "One strong password = infinite peace.",
         "Good vaults make good neighbors.",
         "CryptNest: Built for paranoia, loved for peace."
-];
+    ];
 
-    document.getElementById("quote").innerText = quotes[Math.floor(Math.random() * quotes.length)];
+    let i = 0;
+
+    function typeWriter() {
+        if (i < text.length) {
+            document.getElementById("typing-text").innerHTML += text.charAt(i);
+            i++;
+            setTimeout(typeWriter, 40);
+        }
+    }
+
+    window.onload = () => {
+        const intro = document.getElementById("intro");
+        const hero = document.getElementById("main-content");
+
+        setTimeout(() => {
+            intro.classList.add("fade-out");
+            hero.classList.add("hero-visible");
+
+            setTimeout(() => {
+                typeWriter();
+                document.getElementById("quote").innerText = quotes[Math.floor(Math.random() * quotes.length)];
+            }, 800);
+        }, 2000); // Duration of splash screen
+    };
 </script>
 {% endblock %}

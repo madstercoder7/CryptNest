@@ -75,16 +75,13 @@ def home():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegisterForm()
-
     temp_path = os.path.join("face_data", "temp_face.npy")
 
-    # Only delete temp_face.npy if user is visiting for first time or not captured yet
     if request.method == 'GET' and not session.get('face_captured'):
         session.pop('face_captured', None)
         if os.path.exists(temp_path):
             os.remove(temp_path)
 
-    # Handle face capture (initial or recapture)
     if request.method == 'POST' and 'capture_face' in request.form:
         success = capture_face_temp()
         if success and os.path.exists(temp_path):
@@ -95,7 +92,6 @@ def register():
             flash("❌ Face capture failed. Try again.", "danger")
         return redirect(url_for('register'))
 
-    # Handle registration form submission
     if request.method == 'POST' and 'submit' in request.form:
         if form.validate_on_submit():
             existing_user = User.query.filter_by(username=form.username.data).first()
@@ -108,13 +104,11 @@ def register():
             db.session.add(user)
             db.session.commit()
 
-            # Move face file if captured
             if session.get('face_captured'):
                 try:
                     move_temp_face_to_user(user.id)
                     session.pop('face_captured', None)
-                except Exception as e:
-                    print(f"⚠️ Error saving face: {e}")
+                except Exception:
                     flash("⚠️ Registered, but face could not be saved.", "warning")
 
             flash("✅ Registration successful. Please login.", "success")
@@ -123,7 +117,6 @@ def register():
             flash("❌ Form validation failed. Please check your input.", "danger")
 
     return render_template("register.html", form=form)
-
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
