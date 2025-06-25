@@ -181,7 +181,7 @@ def delete_credential(cred_id):
     flash('Credential deleted', 'info')
     return redirect(url_for('dashboard'))
 
-@app.route('/logout')
+@app.route('/logout', methods=['GET', 'POST'])
 @login_required
 def logout():
     logout_user()
