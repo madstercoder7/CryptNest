@@ -27,27 +27,60 @@
 
     .form-control:focus {
         border-color: #58a6ff;
-        box-shadow: 0 0 0 0.1rem rgba(88, 166, 255, 0.3);
         background-color: #0d1117;
+        box-shadow: 0 0 0 0.1rem rgba(88, 166, 255, 0.3);
     }
 
-    .btn-primary {
-        background-color: #238636;
+    .btn-success {
+        background-color: #00a67e;
+        color: #fff;
         border: none;
     }
 
-    .btn-primary:hover {
-        background-color: #2ea043;
+    .btn-success:hover {
+        background-color: #00916d;
     }
 
-    .btn-outline-secondary {
+    input.form-control,
+    input.form-control:focus {
+        background-color: #0d1117;
+        color: #f0f6fc;
         border: 1px solid #30363d;
-        color: #c9d1d9;
+    }
+
+    .input-group .btn {
+        border: 1px solid #aaa;
+        color: #eee;
         background-color: transparent;
     }
 
-    .btn-outline-secondary:hover {
-        background-color: #30363d;
+    .input-group .btn:hover {
+        background-color: #222222;
+    }
+
+
+    .input-group .btn {
+        border: 1px solid #aaa;
+        color: #eee;
+        background-color: transparent;
+    }
+
+    .input-group .btn:hover {
+        background-color: #222222;
+    }
+
+    .btn {
+        border-radius: 6px;
+    }
+
+    .btn-dark-outline {
+        border: 1px solid #aaa;
+        color: #eee;
+        background-color: transparent;
+    }
+
+    .btn-dark-outline:hover {
+        background-color: #222222;
     }
 
     .btn-danger {
@@ -98,61 +131,57 @@
     .form-text.text-muted {
         color: #8b949e !important;
     }
-
-    .btn {
-        border-radius: 6px;
-    }
-
-    .input-group .form-control {
-        border-top-right-radius: 0;
-        border-bottom-right-radius: 0;
-    }
-
-    .input-group .btn {
-        border-top-left-radius: 0;
-        border-bottom-left-radius: 0;
-    }
 </style>
 
 <div class="vault-card">
     <h2 class="text-info mb-4">🔐 CryptNest Vault</h2>
+        <form action="{{ url_for('dashboard') }}" method="post">
+            {{ form.hidden_tag() }}
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <label class="form-label">Site</label>
+                    {{ form.site(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Username</label>
+                    {{ form.site_username(class="form-control") }}
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Password</label>
+                    <div class="input-group">
+                        {{ form.site_password(class="form-control", id="site-password") }}
+                        <button type="button" class="btn btn-dark-outline" onclick="generatePassword()">🔁</button>
+                    </div>
+                </div>
+            </div>
 
-    <form action="{{ url_for('dashboard') }}" method="post">
-        {{ form.hidden_tag() }}
-        <div class="row g-3 mb-3">
-            <div class="col-md-3">
-                {{ form.site.label(class="form-label") }}
-                {{ form.site(class="form-control") }}
-            </div>
-            <div class="col-md-3">
-                {{ form.site_username.label(class="form-label") }}
-                {{ form.site_username(class="form-control") }}
-            </div>
-            <div class="col-md-3">
-                {{ form.site_password.label(class="form-label") }}
-                {{ form.site_password(class="form-control", id="site-password", placeholder="Enter password") }}
-                <div class="mt-2">
+            <div class="row mt-3 align-items-center">
+                <div class="col-md-8">
                     <div class="progress" style="height: 8px;">
                         <div class="progress-bar" id="strength-bar" role="progressbar" style="width: 0%; background-color: #ccc;"></div>
                     </div>
-                    <small class="form-text text-muted mt-1" id="strength-text">Password Strength: <span id="strength-value">-</span></small>
+                    <small class="form-text text-muted" id="strength-text">Password Strength: <span id="strength-value">-</span></small>
+                </div>
+                <div class="col-md-4 text-end">
+                    {{ form.submit(class="btn btn-success w-100") }}
                 </div>
             </div>
-            <div class="col-md-3 d-flex align-items-end">
-                {{ form.submit(class="btn btn-primary w-100") }}
-            </div>
-        </div>
-    </form>
+        </form>
+
 
     <hr class="text-secondary">
 
-    <h4 class="text-info">📃 Stored Credentials</h4>
-    <table class="table table-dark table-hover mt-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h4 class="text-info">📃 Stored Credentials</h4>
+    </div>
+
+    <table class="table table-dark table-hover">
         <thead>
             <tr>
                 <th>Site</th>
                 <th>Username</th>
                 <th>Password</th>
+                <th>Strength</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -163,47 +192,68 @@
                 <td>{{ cred.site_username }}</td>
                 <td>
                     <div class="input-group">
-                        <input type="password" value="{{ cred.decrypted_password }}" class="form-control password-field" readonly>
-                        <button type="button" class="btn btn-outline-secondary toggle-password" onclick="togglePassword(this)">Show</button>
+                        <input type="password" id="password-{{ cred.id }}" value="********" class="form-control password-field" readonly>
+                        <button type="button" class="btn btn-dark-outline" data-cred-id="{{ cred.id }}" onclick="revealPassword(this)">Reveal</button>
                     </div>
                 </td>
-                <td class="d-flex gap-1">
-                    <form action="{{ url_for('delete_credential', cred_id=cred.id) }}" method="post">
-                        <button class="btn btn-sm btn-danger w-100">Delete</button>
-                    </form>
-                    <button class="btn btn-sm btn-secondary w-100" onclick="copyToClipboard(this)">Copy</button>
+                <td>{{ cred.strength or 'N/A' }}</td>
+                <td>
+                    <div class="d-flex gap-1">
+                        <form action="{{ url_for('delete_credential', cred_id=cred.id) }}" method="post">
+                            <button class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                        <button class="btn btn-sm btn-secondary" onclick="copyToClipboard(this)">Copy</button>
+                    </div>
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="4">No credentials stored yet</td></tr>
+            <tr><td colspan="5">No credentials stored yet</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
 
 <script>
+    function generatePassword() {
+        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+{}[]|:;<>,.?/";
+        let password = "";
+        for (let i = 0; i < 16; i++) {
+            password += charset.charAt(Math.floor(Math.random() * charset.length));
+        }
+        const input = document.getElementById("site-password");
+        input.value = password;
+        input.dispatchEvent(new Event('input'));
+    }
+
     function copyToClipboard(button) {
         const input = button.closest('tr').querySelector('input');
-        input.type = 'text';
+        if (input.value === '********') {
+            alert("🔒 Reveal the password first.");
+            return;
+        }
         input.select();
         document.execCommand("copy");
-        input.type = "password";
         button.textContent = "Copied!";
         setTimeout(() => button.textContent = "Copy", 1000);
     }
 
-    function togglePassword(button) {
-        const input = button.previousElementSibling;
+    function revealPassword(button) {
+        const credId = button.dataset.credId;
+        const input = document.getElementById(`password-${credId}`);
+
         if (input.type === "password") {
-            input.type = "text";
-            button.innerText = "Hide";
-            setTimeout(() => {
-                input.type = "password";
-                button.innerText = "Show";
-            }, 10000);
+            fetch(`/reveal_password/${credId}`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    input.type = "text";
+                    input.value = data.password;
+                    button.textContent = "Hide";
+                })
+                .catch(err => console.error("Error revealing password: ", err));
         } else {
             input.type = "password";
-            button.innerText = "Show";
+            input.value = "********";
+            button.textContent = "Reveal";
         }
     }
 
@@ -215,7 +265,6 @@
         passwordInput.addEventListener('input', () => {
             const password = passwordInput.value;
             const { strength, percent, color } = getStrength(password);
-
             strengthValue.textContent = strength;
             strengthBar.style.width = percent + '%';
             strengthBar.style.backgroundColor = color;
@@ -228,14 +277,12 @@
             if (/[a-z]/.test(password)) score++;
             if (/[0-9]/.test(password)) score++;
             if (/[^A-Za-z0-9]/.test(password)) score++;
-
             if (score <= 2) return { strength: "Weak", percent: 33, color: "#ff4d4d" };
             else if (score <= 4) return { strength: "Medium", percent: 66, color: "#ffc107" };
             else return { strength: "Strong", percent: 100, color: "#00e676" };
         }
     });
 
-    // Auto logout when closing the tab
     window.addEventListener('beforeunload', function () {
         navigator.sendBeacon("{{ url_for('logout') }}");
     });

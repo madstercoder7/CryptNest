@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, redirect, url_for, flash, request, session
+from flask import Flask, render_template, redirect, url_for, flash, request, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin, current_user
@@ -36,6 +36,7 @@ def encrypt_password(password_plain):
 def decrypt_password(password_encrypted):
     return fernet.decrypt(password_encrypted.encode()).decode()
 
+# Models
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False)
@@ -49,10 +50,12 @@ class Credential(db.Model):
     strength = db.Column(db.String(10))
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
+# Load user for login manager
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
 
+# Forms
 class RegisterForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
     password = PasswordField('Password', validators=[DataRequired()])
@@ -70,6 +73,7 @@ class CredentialForm(FlaskForm):
     site_password = PasswordField('Password', validators=[DataRequired()])
     submit = SubmitField('Save')
 
+# Routes
 @app.route('/')
 def home():
     return render_template("landing.html")
@@ -167,10 +171,14 @@ def dashboard():
         return redirect(url_for('dashboard'))
 
     credentials = Credential.query.filter_by(user_id=current_user.id).all()
-    for cred in credentials:
-        cred.decrypted_password = decrypt_password(cred.site_password)
-
     return render_template('dashboard.html', form=form, credentials=credentials)
+
+@app.route('/reveal_password/<int:cred_id>', methods=['POST'])
+@login_required
+def reveal_password(cred_id):
+    credential = Credential.query.filter_by(id=cred_id, user_id=current_user.id).first_or_404()
+    decrypted_password = decrypt_password(credential.site_password)
+    return jsonify({"password": decrypted_password})
 
 @app.route('/delete/<int:cred_id>', methods=['GET', 'POST'])
 @login_required
@@ -189,6 +197,7 @@ def logout():
     flash("Logged out successfully.", "info")
     return redirect(url_for('login'))
 
+# Run the app
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
