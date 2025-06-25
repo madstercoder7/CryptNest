@@ -73,6 +73,9 @@ def verify_face_against_encodings():
 
     matched_user_id = None
     timeout_frames = 100
+    strict_tolerance = 0.45
+
+    last_detected_face_encoding = None
 
     while timeout_frames > 0:
         ret, frame = video.read()
@@ -89,12 +92,18 @@ def verify_face_against_encodings():
                 reverse=True
             )[0]
             face_encoding = face_recognition.face_encodings(rgb_frame, [largest_face])[0]
-            results = face_recognition.compare_faces(known_encodings, face_encoding)
+            last_detected_face_encoding = face_encoding
 
-            if True in results:
-                matched_index = results.index(True)
-                matched_user_id = int(user_ids[matched_index])
+            distances = face_recognition.face_distance(known_encodings, face_encoding)
+            best_match_index = np.argmin(distances)
+
+            if distances[best_match_index] < strict_tolerance:
+                matched_user_id = int(user_ids[best_match_index])
                 break
+
+            top, right, bottom, left = largest_face
+            cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
+            cv2.putText(frame, "Face not recognized", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
         timeout_frames -= 1
         cv2.imshow("Verifying Face", frame)
@@ -103,4 +112,8 @@ def verify_face_against_encodings():
 
     video.release()
     cv2.destroyAllWindows()
-    return matched_user_id
+    
+    if matched_user_id:
+        return matched_user_id, None
+    else:
+        return None, last_detected_face_encoding

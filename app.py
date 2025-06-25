@@ -1,4 +1,6 @@
 import os
+from datetime import datetime
+import numpy as np
 from flask import Flask, render_template, redirect, url_for, flash, request, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
@@ -129,14 +131,19 @@ def login():
     form = LoginForm()
     if request.method == 'POST':
         if 'face_unlock' in request.form:
-            matched_user_id = verify_face_against_encodings()
+            matched_user_id, suspicious_encoding = verify_face_against_encodings()
             if matched_user_id:
                 user = db.session.get(User, matched_user_id)
                 if user:
                     login_user(user)
                     flash('Logged in using face unlock.', 'success')
-                    session.pop('face_attempts', None)
                     return redirect(url_for('dashboard'))
+            else:
+                if suspicious_encoding is not None:
+                    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+                    np.save(f"intrusion_logs/face_{timestamp}.npy", suspicious_encoding)
+                flash("Face not recognized, try manual login", "warning")
+                return redirect(url_for('login'))
             
             session['face_attempts'] = session.get('face_attempts', 0) + 1
             if session['face_attempts'] >= 3:
