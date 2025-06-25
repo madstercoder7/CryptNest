@@ -9,7 +9,7 @@ from wtforms.validators import DataRequired, EqualTo
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
 from face_unlock import capture_face_temp, move_temp_face_to_user, verify_face_against_encodings
-from utils import get_password_strength
+from utils import get_password_strength, check_pwned
 
 load_dotenv()
 
@@ -154,10 +154,21 @@ def login():
 @login_required
 def dashboard():
     form = CredentialForm()
+    credentials = Credential.query.filter_by(user_id=current_user.id).all()
 
     if form.validate_on_submit():
+        site_password = form.site_password.data
         password_strength = get_password_strength(form.site_password.data)
-        encrypted_pw = encrypt_password(form.site_password.data)
+        encrypted_pw = encrypt_password(site_password)
+
+        pwned_count = check_pwned(site_password)
+        if pwned_count is None:
+            flash("⚠️ Could not verify password with HIBP. Try again later", "warning")
+        elif pwned_count > 0:
+            flash(f"🚨This password was for in {pwned_count} known breaches! Consider using a safer one", "danger")
+        else:
+            flash("✅ This password was not found in any breaches", "success")
+
         new_cred = Credential(
             site=form.site.data,
             site_username=form.site_username.data,
