@@ -9,7 +9,7 @@ from wtforms.validators import DataRequired, EqualTo
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
 from face_unlock import capture_face_temp, move_temp_face_to_user, verify_face_against_encodings
-from utils import get_password_strength, check_pwned
+from utils import get_password_strength, check_pwned, capture_intrusion_screenshot
 
 load_dotenv()
 
@@ -135,8 +135,16 @@ def login():
                 if user:
                     login_user(user)
                     flash('Logged in using face unlock.', 'success')
+                    session.pop('face_attempts', None)
                     return redirect(url_for('dashboard'))
-            flash('Face not recognized. Try manual login.', 'warning')
+            
+            session['face_attempts'] = session.get('face_attempts', 0) + 1
+            if session['face_attempts'] >= 3:
+                capture_intrusion_screenshot()
+                session['face_attempts'] = 0
+                flash("Suspicious activity detected. Screenshot saved", "danger")
+            else:
+                flash("Face not recognized, try manual login", "warning")
             return redirect(url_for('login'))
 
         if form.validate_on_submit():
@@ -144,6 +152,7 @@ def login():
             if user and bcrypt.check_password_hash(user.password, form.password.data):
                 login_user(user)
                 flash('Login successful.', 'success')
+                session.pop('face_attempts', None)
                 return redirect(url_for('dashboard'))
             else:
                 flash('Incorrect username or password.', 'danger')

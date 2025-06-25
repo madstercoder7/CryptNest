@@ -7,3 +7,5 @@ __pycache__
 *.db
 instance/
 face_data
+intrusion_logs/
+face_data

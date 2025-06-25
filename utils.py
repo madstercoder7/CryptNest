@@ -1,6 +1,31 @@
 import re
+import os
 import requests
 import hashlib
+import cv2
+from flask import request
+from datetime import datetime
+
+def capture_intrusion_screenshot():
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        return
+    
+    ret, frame = cap.read()
+    if ret:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        folder = "intrusion_logs"
+        os.makedirs(folder, exist_ok=True)
+        filename = f"{folder}/intruder_{timestamp}.jpg"
+        cv2.imwrite(filename, frame)
+        print(f"Intrusion captured: {filename}")
+
+        ip = request.remote_addr
+        agent = request.headers.get("User-Agent")
+        with open(f"{folder}/log.txt", "a") as f:
+            f.write(f"{timestamp} | IP: {ip} | Agent: {agent}\n")
+    cap.release()
+    cv2.destroyAllWindows()
 
 def get_password_strength(password):
     length = len(password) >= 0
