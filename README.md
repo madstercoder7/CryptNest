@@ -37,12 +37,6 @@ git clone https://github.com/madstercoder7/CryptNest.git
 cd CryptNest
 ```
 
-2. **Create a folder**
-```bash
-mkdir cryptnest
-cd cryptnest
-```
-
 2. **Create Virtual Environment**
 ```bash
 python -m venv venv
@@ -56,7 +50,7 @@ pip install -r requirements.txt
 
 4. **Initialize the database**
 ```bash
-python
+flask shell
 ```
 ```bash
 from app import db
@@ -67,7 +61,8 @@ exit()
 5. **Configure Environment Variables**
 ```bash
 SECRET_KEY=your_secret_key_here
-MAIL_PASSWORD=your_gmail_app_password
+MAIL_USER=admins_gmail_id
+MAIL_PASSWORD=admins_gmail_app_password
 ```
 
 6. **Run the App**
