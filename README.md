@@ -37,6 +37,12 @@ git clone https://github.com/madstercoder7/CryptNest.git
 cd CryptNest
 ```
 
+2. **Create a folder**
+```bash
+mkdir cryptnest
+cd cryptnest
+```
+
 2. **Create Virtual Environment**
 ```bash
 python -m venv venv
