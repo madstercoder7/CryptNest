@@ -68,7 +68,6 @@ def verify_face_against_encodings():
     matched_user_id = None
     timeout_frames = 100
     strict_tolerance = 0.45
-
     last_detected_face_encoding = None
 
     while timeout_frames > 0:
@@ -101,14 +100,11 @@ def verify_face_against_encodings():
 
         timeout_frames -= 1
         cv2.imshow("Verifying Face", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-        elif timeout_frames == 0:
-            break
+        cv2.waitKey(1)  # Removed any conditional break on key press
 
     video.release()
     cv2.destroyAllWindows()
-    
+
     if matched_user_id:
         return matched_user_id, None
     else:

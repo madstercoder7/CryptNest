@@ -178,7 +178,7 @@ def face_login():
         user.face_attempts += 1
         db.session.commit()
         if user.face_attempts >= 3:
-            user.face_unlock_enbaled = False
+            user.face_unlock_enabled = False
             db.session.commit()
             handle_intrusion(user)
             flash("🚫 Face unlock disabled after 3 failed attempts.", "danger")
