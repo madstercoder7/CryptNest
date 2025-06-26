@@ -1,6 +1,6 @@
 import os
-from datetime import datetime
 import numpy as np
+from datetime import datetime
 from flask import Flask, render_template, redirect, url_for, flash, request, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
@@ -11,12 +11,12 @@ from wtforms.validators import DataRequired, EqualTo
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
 from face_unlock import capture_face_temp, move_temp_face_to_user, verify_face_against_encodings
-from utils import get_password_strength, check_pwned
+from utils import get_password_strength, check_pwned, send_intrusion_alert, handle_intrusion
 
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') or 'devkey'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cryptnest.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -176,12 +176,15 @@ def face_login():
         return redirect(url_for('dashboard'))
     else:
         user.face_attempts += 1
+        db.session.commit()
         if user.face_attempts >= 3:
             user.face_unlock_enbaled = False
+            db.session.commit()
+            handle_intrusion(user)
             flash("🚫 Face unlock disabled after 3 failed attempts.", "danger")
         else:
             flash(f"⚠️ Face not recognized. Attempt {user.face_attempts}/3", "warning")
-        db.session.commit()
+        
         return redirect(url_for('login'))
 
 @app.route('/dashboard', methods=['GET', 'POST'])

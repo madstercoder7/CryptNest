@@ -101,7 +101,9 @@ def verify_face_against_encodings():
 
         timeout_frames -= 1
         cv2.imshow("Verifying Face", frame)
-        if cv2.waitKey(1) == ord('q'):
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+        elif timeout_frames == 0:
             break
 
     video.release()
