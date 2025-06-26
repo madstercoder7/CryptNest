@@ -48,13 +48,23 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. **Configure Environment Variables**
+4. **Initialize the database**
+```bash
+python
+```
+```bash
+from app import db
+db.create_all()
+exit()
+```
+
+5. **Configure Environment Variables**
 ```bash
 SECRET_KEY=your_secret_key_here
 MAIL_PASSWORD=your_gmail_app_password
 ```
 
-5. **Run the App**
+6. **Run the App**
 ```bash
 flask run
 ```
