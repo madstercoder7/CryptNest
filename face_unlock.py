@@ -10,7 +10,7 @@ os.makedirs(ENCODING_DIR, exist_ok=True)
 
 def capture_face_temp():
     video = cv2.VideoCapture(0)
-    face_encoding = None
+    latest_encoding = None
 
     while True:
         ret, frame = video.read()
@@ -26,31 +26,25 @@ def capture_face_temp():
                 key=lambda loc: (loc[2] - loc[0]) * (loc[1] - loc[3]),
                 reverse=True
             )[0]
-            face_encoding = face_recognition.face_encodings(rgb_frame, [largest_face])[0]
+            latest_encoding = face_recognition.face_encodings(rgb_frame, [largest_face])[0]
 
             top, right, bottom, left = largest_face
             cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-            cv2.putText(
-                frame,
-                "Face detected - Press 's' to save",
-                (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                (0, 255, 0),
-                2
-            )
+            cv2.putText(frame, "Face detected - Press 's' to save", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
         cv2.imshow("Capture Face", frame)
-        key = cv2.waitKey(1)
-        if key == ord('s') and face_encoding is not None:
-            np.save(TEMP_FACE_PATH, face_encoding)
+        key = cv2.waitKey(10)
+        if key == ord('s') and latest_encoding is not None:
+            np.save(TEMP_FACE_PATH, latest_encoding)
             break
         elif key == ord('q'):
             break
 
     video.release()
     cv2.destroyAllWindows()
-    return face_encoding is not None
+    return latest_encoding is not None
+
 
 
 def move_temp_face_to_user(user_id):

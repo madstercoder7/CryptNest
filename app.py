@@ -89,8 +89,7 @@ def register():
     form = RegisterForm()
     temp_path = os.path.join("face_data", "temp_face.npy")
 
-    if request.method == 'GET':
-        session.pop('face_captured', None)
+    if request.method == 'GET' and 'face_captured' not in session:
         if os.path.exists(temp_path):
             os.remove(temp_path)
 
@@ -115,7 +114,7 @@ def register():
                 if existing_user.username == form.username.data:
                     flash("❌ Username already exists. Try another one.", "danger")
                 else:
-                    flash("❌ Email already registered. Try logging in instead.", "danger")
+                    flash("❌ Email already registered. Try using another.", "danger")
                 return redirect(url_for('register'))
 
             hashed_pw = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
