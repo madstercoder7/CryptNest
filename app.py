@@ -6,12 +6,12 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin, current_user
 from flask_wtf import FlaskForm
-from wtforms import PasswordField, SubmitField, StringField
+from wtforms import PasswordField, SubmitField, StringField, EmailField
 from wtforms.validators import DataRequired, EqualTo
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
 from face_unlock import capture_face_temp, move_temp_face_to_user, verify_face_against_encodings
-from utils import get_password_strength, check_pwned, capture_intrusion_screenshot
+from utils import get_password_strength, check_pwned
 
 load_dotenv()
 
@@ -42,7 +42,10 @@ def decrypt_password(password_encrypted):
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(128), nullable=False)
+    face_unlock_enabled = db.Column(db.Boolean, default=True)
+    face_attempts = db.Column(db.Integer, default=0)
 
 class Credential(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -52,7 +55,7 @@ class Credential(db.Model):
     strength = db.Column(db.String(10))
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
-# Load user for login manager
+# Load user
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
@@ -60,6 +63,7 @@ def load_user(user_id):
 # Forms
 class RegisterForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
+    email = StringField('Email', validators=[DataRequired()])
     password = PasswordField('Password', validators=[DataRequired()])
     confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
     submit = SubmitField('Register')
@@ -85,7 +89,7 @@ def register():
     form = RegisterForm()
     temp_path = os.path.join("face_data", "temp_face.npy")
 
-    if request.method == 'GET' and not session.get('face_captured'):
+    if request.method == 'GET':
         session.pop('face_captured', None)
         if os.path.exists(temp_path):
             os.remove(temp_path)
@@ -102,13 +106,20 @@ def register():
 
     if request.method == 'POST' and 'submit' in request.form:
         if form.validate_on_submit():
-            existing_user = User.query.filter_by(username=form.username.data).first()
+            # Check for existing username or email
+            existing_user = User.query.filter(
+                (User.username == form.username.data) | (User.email == form.email.data)
+            ).first()
+
             if existing_user:
-                flash("❌ Username already exists. Try another one.", "danger")
+                if existing_user.username == form.username.data:
+                    flash("❌ Username already exists. Try another one.", "danger")
+                else:
+                    flash("❌ Email already registered. Try logging in instead.", "danger")
                 return redirect(url_for('register'))
 
             hashed_pw = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
-            user = User(username=form.username.data, password=hashed_pw)
+            user = User(username=form.username.data, email=form.email.data, password=hashed_pw)
             db.session.add(user)
             db.session.commit()
 
@@ -129,59 +140,66 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
-    if request.method == 'POST':
-        if 'face_unlock' in request.form:
-            matched_user_id, suspicious_encoding = verify_face_against_encodings()
-            if matched_user_id:
-                user = db.session.get(User, matched_user_id)
-                if user:
-                    login_user(user)
-                    flash('Logged in using face unlock.', 'success')
-                    return redirect(url_for('dashboard'))
-            else:
-                if suspicious_encoding is not None:
-                    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-                    np.save(f"intrusion_logs/face_{timestamp}.npy", suspicious_encoding)
-                flash("Face not recognized, try manual login", "warning")
-                return redirect(url_for('login'))
-            
-            session['face_attempts'] = session.get('face_attempts', 0) + 1
-            if session['face_attempts'] >= 3:
-                capture_intrusion_screenshot()
-                session['face_attempts'] = 0
-                flash("Suspicious activity detected. Screenshot saved", "danger")
-            else:
-                flash("Face not recognized, try manual login", "warning")
-            return redirect(url_for('login'))
+    if form.validate_on_submit():
+        user = User.query.filter_by(username=form.username.data.strip()).first()
+        if user and bcrypt.check_password_hash(user.password, form.password.data):
+            login_user(user)
+            user.face_attempts = 0
+            user.face_unlock_enabled = True
+            db.session.commit()
+            flash("✅ Login successful.", "success")
+            return redirect(url_for('dashboard'))
+        else:
+            flash("❌ Incorrect username or password.", "danger")
 
-        if form.validate_on_submit():
-            user = User.query.filter_by(username=form.username.data).first()
-            if user and bcrypt.check_password_hash(user.password, form.password.data):
-                login_user(user)
-                flash('Login successful.', 'success')
-                session.pop('face_attempts', None)
-                return redirect(url_for('dashboard'))
-            else:
-                flash('Incorrect username or password.', 'danger')
+    return render_template("login.html", form=form)
 
-    return render_template('login.html', form=form)
+@app.route('/face-login', methods=['POST'])
+def face_login():
+    username = request.form.get('username', '').strip()
+    user = User.query.filter_by(username=username).first()
+
+    if not user:
+        flash("❌ Username not found.", "danger")
+        return redirect(url_for('login'))
+
+    if not user.face_unlock_enabled:
+        flash("🚫 Face unlock is disabled for this user.", "danger")
+        return redirect(url_for('login'))
+    
+    matched_user_id, _  = verify_face_against_encodings()
+
+    if matched_user_id == user.id:
+        login_user(user)
+        user.face_attempts = 0
+        db.session.commit()
+        flash("Face unlock successful", "success")
+        return redirect(url_for('dashboard'))
+    else:
+        user.face_attempts += 1
+        if user.face_attempts >= 3:
+            user.face_unlock_enbaled = False
+            flash("🚫 Face unlock disabled after 3 failed attempts.", "danger")
+        else:
+            flash(f"⚠️ Face not recognized. Attempt {user.face_attempts}/3", "warning")
+        db.session.commit()
+        return redirect(url_for('login'))
 
 @app.route('/dashboard', methods=['GET', 'POST'])
 @login_required
 def dashboard():
     form = CredentialForm()
-    credentials = Credential.query.filter_by(user_id=current_user.id).all()
 
     if form.validate_on_submit():
         site_password = form.site_password.data
-        password_strength = get_password_strength(form.site_password.data)
+        password_strength = get_password_strength(site_password)
         encrypted_pw = encrypt_password(site_password)
 
         pwned_count = check_pwned(site_password)
         if pwned_count is None:
             flash("⚠️ Could not verify password with HIBP. Try again later", "warning")
         elif pwned_count > 0:
-            flash(f"🚨This password was for in {pwned_count} known breaches! Consider using a safer one", "danger")
+            flash(f"🚨This password was found in {pwned_count} known breaches!", "danger")
         else:
             flash("✅ This password was not found in any breaches", "success")
 
@@ -224,7 +242,6 @@ def logout():
     flash("Logged out successfully.", "info")
     return redirect(url_for('login'))
 
-# Run the app
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

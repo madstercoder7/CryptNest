@@ -13,7 +13,7 @@
 
     .fullscreen-center {
         min-height: 100vh;
-        padding-top: 70px; 
+        padding-top: 70px;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -26,7 +26,6 @@
         background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.12);
         backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
         border-radius: 16px;
         padding: 2rem;
         max-width: 400px;
@@ -90,17 +89,16 @@
     <div class="glass-card">
         <h3>🔐 Login to <span style="color: #00ffe7;">CryptNest</span></h3>
 
-        <form class="mb-3 text-center" method="post">
-            <button type="submit" name="face_unlock" value="true" class="btn btn-outline-light btn-sm">
-                Use Face Unlock
-            </button>
-        </form>
-
         <form method="post">
             {{ form.hidden_tag() }}
             <div class="mb-3">
                 {{ form.username.label(class="form-label") }}
-                {{ form.username(class="form-control", placeholder="Enter your username") }}
+                {{ form.username(class="form-control", placeholder="Enter your username", autocomplete="off") }}
+            </div>
+            <div class="mb-3 text-center">
+                <button type="button" class="btn btn-outline-light" id="face-unlock-btn" disabled>
+                    Use Face Unlock
+                </button>
             </div>
             <div class="mb-3">
                 {{ form.password.label(class="form-label") }}
@@ -114,4 +112,34 @@
         </div>
     </div>
 </div>
+
+<script>
+    const usernameInput = document.querySelector('input[name="username"]');
+    const faceBtn = document.getElementById('face-unlock-btn');
+
+    function toggleFaceUnlock() {
+        faceBtn.disabled = usernameInput.value.trim() === '';
+    }
+
+    usernameInput.addEventListener('input', toggleFaceUnlock);
+    window.addEventListener('DOMContentLoaded', toggleFaceUnlock);
+
+    faceBtn.addEventListener('click', () => {
+        const username = usernameInput.value.trim();
+        if (!username) return alert("Please enter your username first.");
+
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = "/face-login";
+
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "username";
+        input.value = username;
+
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+    });
+</script>
 {% endblock %}
