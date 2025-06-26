@@ -33,7 +33,7 @@ CryptNest is a secure, privacy-first password manager that runs entirely **local
 
 1. **Clone the Repository**
 ```bash
-git clone https://github.com/yourusername/CryptNest.git
+git clone https://github.com/madstercoder7/CryptNest.git
 cd CryptNest
 ```
 
