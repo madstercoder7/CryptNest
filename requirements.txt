@@ -9,3 +9,4 @@ opencv-python
 pyautogui
 requests
 cryptography
+git+https://github.com/ageitgey/face_recognition_models
