@@ -85,11 +85,12 @@ def handle_intrusion(user):
 
     send_intrusion_alert(user.email, intruder_path, screenshot_path)
 
-def send_intrusion_alert(to_email, intruder_path, screen_path):
+def send_intrusion_alert(from_email, to_email, intruder_path, screen_path):
+    from_email = os.getenv('MAIL_USER')
     mail_password = os.getenv('MAIL_PASSWORD')
     msg = EmailMessage()
     msg['Subject'] = 'CryptNest intrusion alert'
-    msg['From'] = 'cryptnestm@gmail.com'
+    msg['From'] = from_email
     msg['To'] = to_email
     msg.set_content(
         "⚠️ CryptNest detected 3 failed face unlock attempts.\n"
