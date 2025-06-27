@@ -61,8 +61,8 @@ exit()
 5. **Configure Environment Variables**
 ```bash
 SECRET_KEY=your_secret_key_here
-MAIL_USER=admins_gmail_id
-MAIL_PASSWORD=admins_gmail_app_password
+ADMIN_MAIL=admins_gmail_id
+APP_PASSWORD=admins_gmail_app_password
 ```
 
 6. **Run the App**
