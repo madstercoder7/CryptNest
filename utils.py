@@ -74,6 +74,9 @@ def handle_intrusion(user):
     intruder_path = f"intrusion_logs/intruder_{user.id}_{timestamp}.jpg"
     screenshot_path = f"intrusion_logs/screenshot_{user.id}_{timestamp}.png"
     admin_email = os.getenv('ADMIN_MAIL')
+    if not admin_email:
+        print("No ADMIN_EMAIL set in .env cannot send intruison alert")
+        return
 
     cam = cv2.VideoCapture(0)
     ret, frame = cam.read()
@@ -87,8 +90,7 @@ def handle_intrusion(user):
     send_intrusion_alert(admin_email, user.email, intruder_path, screenshot_path)
 
 def send_intrusion_alert(from_email, to_email, intruder_path, screen_path):
-    from_email = os.getenv('MAIL_USER')
-    mail_password = os.getenv('MAIL_PASSWORD')
+    app_password = os.getenv('APP_PASSWORD')
     msg = EmailMessage()
     msg['Subject'] = 'CryptNest intrusion alert'
     msg['From'] = from_email
@@ -116,7 +118,7 @@ def send_intrusion_alert(from_email, to_email, intruder_path, screen_path):
 
     try:
         smtp_server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
-        smtp_server.login('cryptnestpm@gmail.com', mail_password)
+        smtp_server.login('cryptnestpm@gmail.com', app_password)
         smtp_server.send_message(msg)
         smtp_server.quit()
         print("Intrusion alert mail sent")
