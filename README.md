@@ -63,6 +63,7 @@ exit()
 SECRET_KEY=your_secret_key_here
 ADMIN_MAIL=admins_gmail_id
 APP_PASSWORD=admins_gmail_app_password
+APP_PASSWORD can be created here https://myaccount.google.com/apppasswords, only if the admin here has 2FA enabled
 ```
 
 6. **Run the App**
