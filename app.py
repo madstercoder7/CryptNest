@@ -93,46 +93,48 @@ def register():
         if os.path.exists(temp_path):
             os.remove(temp_path)
 
-    if request.method == 'POST' and 'capture_face' in request.form:
-        success = capture_face_temp()
-        if success and os.path.exists(temp_path):
-            session['face_captured'] = True
-            flash("✅ Face captured successfully", "success")
-        else:
-            session.pop('face_captured', None)
-            flash("❌ Face capture failed. Try again.", "danger")
-        return redirect(url_for('register'))
+    if request.method == 'POST':
+        if 'capture_face' in request.form:
+            # Face capture form submitted
+            success = capture_face_temp()
+            temp_path = os.path.join("face_data", "temp_face.npy")
+            if success and os.path.exists(temp_path):
+                session['face_captured'] = True
+                flash("✅ Face captured successfully", "success")
+            else:
+                session.pop('face_captured', None)
+                flash("❌ Face capture failed. Try again.", "danger")
+            return redirect(url_for('register'))
+        elif 'submit' in request.form:
+            # Registration form submitted
+            if form.validate_on_submit():
+                existing_user = User.query.filter(
+                    (User.username == form.username.data) | (User.email == form.email.data)
+                ).first()
 
-    if request.method == 'POST' and 'submit' in request.form:
-        if form.validate_on_submit():
-            # Check for existing username or email
-            existing_user = User.query.filter(
-                (User.username == form.username.data) | (User.email == form.email.data)
-            ).first()
+                if existing_user:
+                    if existing_user.username == form.username.data:
+                        flash("❌ Username already exists. Try another one.", "danger")
+                    else:
+                        flash("❌ Email already registered. Try using another.", "danger")
+                    return redirect(url_for('register'))
 
-            if existing_user:
-                if existing_user.username == form.username.data:
-                    flash("❌ Username already exists. Try another one.", "danger")
-                else:
-                    flash("❌ Email already registered. Try using another.", "danger")
-                return redirect(url_for('register'))
+                hashed_pw = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
+                user = User(username=form.username.data, email=form.email.data, password=hashed_pw)
+                db.session.add(user)
+                db.session.commit()
 
-            hashed_pw = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
-            user = User(username=form.username.data, email=form.email.data, password=hashed_pw)
-            db.session.add(user)
-            db.session.commit()
+                if session.get('face_captured'):
+                    try:
+                        move_temp_face_to_user(user.id)
+                        session.pop('face_captured', None)
+                    except Exception:
+                        flash("⚠️ Registered, but face could not be saved.", "warning")
 
-            if session.get('face_captured'):
-                try:
-                    move_temp_face_to_user(user.id)
-                    session.pop('face_captured', None)
-                except Exception:
-                    flash("⚠️ Registered, but face could not be saved.", "warning")
-
-            flash("✅ Registration successful. Please login.", "success")
-            return redirect(url_for('login'))
-        else:
-            flash("❌ Form validation failed. Please check your input.", "danger")
+                flash("✅ Registration successful. Please login.", "success")
+                return redirect(url_for('login'))
+            else:
+                flash("❌ Form validation failed. Please check your input.", "danger")
 
     return render_template("register.html", form=form)
 

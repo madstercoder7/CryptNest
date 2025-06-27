@@ -2,6 +2,7 @@ import face_recognition
 import cv2
 import numpy as np
 import os
+import time
 import shutil
 
 ENCODING_DIR = "face_data"
@@ -66,11 +67,12 @@ def verify_face_against_encodings():
             user_ids.append(user_id)
 
     matched_user_id = None
-    timeout_frames = 100
+    start_time = time.time()
+    max_duration = 5
     strict_tolerance = 0.45
     last_detected_face_encoding = None
 
-    while timeout_frames > 0:
+    while time.time() - start_time < max_duration:
         ret, frame = video.read()
         if not ret:
             continue
@@ -98,7 +100,6 @@ def verify_face_against_encodings():
             cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
             cv2.putText(frame, "Face not recognized", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
-        timeout_frames -= 1
         cv2.imshow("Verifying Face", frame)
         cv2.waitKey(1)  # Removed any conditional break on key press
 

@@ -73,6 +73,7 @@ def handle_intrusion(user):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     intruder_path = f"intrusion_logs/intruder_{user.id}_{timestamp}.jpg"
     screenshot_path = f"intrusion_logs/screenshot_{user.id}_{timestamp}.png"
+    admin_email = os.getenv('ADMIN_MAIL')
 
     cam = cv2.VideoCapture(0)
     ret, frame = cam.read()
@@ -83,7 +84,7 @@ def handle_intrusion(user):
     screenshot = pyautogui.screenshot()
     screenshot.save(screenshot_path)
 
-    send_intrusion_alert(user.email, intruder_path, screenshot_path)
+    send_intrusion_alert(admin_email, user.email, intruder_path, screenshot_path)
 
 def send_intrusion_alert(from_email, to_email, intruder_path, screen_path):
     from_email = os.getenv('MAIL_USER')
