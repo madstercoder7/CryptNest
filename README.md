@@ -63,10 +63,16 @@ exit()
 SECRET_KEY=your_secret_key_here
 ADMIN_MAIL=admins_gmail_id
 APP_PASSWORD=admins_gmail_app_password
-APP_PASSWORD can be created here https://myaccount.google.com/apppasswords, only if the admin here has 2FA enabled
 ```
+
+APP_PASSWORD can be created here https://myaccount.google.com/apppasswords, only if the admin here has 2FA enabled
+
 
 6. **Run the App**
 ```bash
 flask run
 ```
+
+Due to hardware limitations (webcam-based face recognition), CryptNest is meant to be run locally. A live hosted demo is not possible as face unlock requires direct access to the user’s webcam. I will try my best to solve this in the future. 
+
+Please provide feedback
