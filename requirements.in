@@ -1,0 +1,13 @@
+Flask
+Flask-Login
+Flask-WTF
+Flask-Bcrypt
+Flask-SQLAlchemy
+python-dotenv
+face_recognition
+opencv-python
+pyautogui
+requests
+cryptography
+git+https://github.com/ageitgey/face_recognition_models
+setuptools

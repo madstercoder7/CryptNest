@@ -24,6 +24,7 @@ CryptNest is a secure, privacy-first password manager that runs entirely **local
 - SQLite (local database)
 - HTML/CSS + Bootstrap (frontend)
 - Gmail SMTP (for alerts)
+- UV (for installing dependencies on local systems)
 
 ---
 
@@ -45,7 +46,8 @@ venv\Scripts\activate
 
 3. **Install Requirements**
 ```bash
-pip install -r requirements.txt
+pip install uv
+uv pip install -r requirements.txt
 ```
 
 4. **Initialize the database**
@@ -59,11 +61,16 @@ exit()
 ```
 
 5. **Configure Environment Variables**
+Create a .env file in your project root and add:
 ```bash
 SECRET_KEY=your_secret_key_here
 ADMIN_MAIL=admins_gmail_id
 APP_PASSWORD=admins_gmail_app_password
 ```
+
+ADMIN_MAIL should be the Gmail address you own and control (used as the sender of intrusion alerts).
+
+APP_PASSWORD must be the app password for the same Gmail account set in ADMIN_MAIL.
 
 APP_PASSWORD can be created here https://myaccount.google.com/apppasswords, only if the admin here has 2FA enabled
 
@@ -73,6 +80,6 @@ APP_PASSWORD can be created here https://myaccount.google.com/apppasswords, only
 flask run
 ```
 
-Due to hardware limitations (webcam-based face recognition), CryptNest is meant to be run locally. A live hosted demo is not possible as face unlock requires direct access to the user’s webcam. I will try my best to solve this in the future. 
+⚠️ Note: CryptNest is designed for local use only because it requires direct webcam access for face recognition. A hosted demo is not possible at this time. I plan to explore solutions to this limitation in the future.
 
 Please provide feedback
