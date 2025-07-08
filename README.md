@@ -24,7 +24,6 @@ CryptNest is a secure, privacy-first password manager that runs entirely **local
 - SQLite (local database)
 - HTML/CSS + Bootstrap (frontend)
 - Gmail SMTP (for alerts)
-- UV (for installing dependencies on local systems)
 
 ---
 
@@ -46,8 +45,7 @@ venv\Scripts\activate
 
 3. **Install Requirements**
 ```bash
-pip install uv
-uv pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 4. **Initialize the database**
@@ -64,9 +62,8 @@ exit()
 Create a .env file in your project root and add:
 ```bash
 SECRET_KEY=your_secret_key_here
-SQLALCHEMY_DATABASE_URI="sqlite:///cryptnest.db"
-ADMIN_MAIL=admins_gmail_id
-APP_PASSWORD=admins_gmail_app_password
+ADMIN_MAIL="cryptnestpm@gmail.com"
+APP_PASSWORD="gljzivhymbwskbio"
 ```
 
 ADMIN_MAIL should be the Gmail address you own and control (used as the sender of intrusion alerts).
