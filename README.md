@@ -64,6 +64,7 @@ exit()
 Create a .env file in your project root and add:
 ```bash
 SECRET_KEY=your_secret_key_here
+SQLALCHEMY_DATABASE_URI="sqlite:///cryptnest.db"
 ADMIN_MAIL=admins_gmail_id
 APP_PASSWORD=admins_gmail_app_password
 ```
