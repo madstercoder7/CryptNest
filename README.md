@@ -43,10 +43,19 @@ python -m venv venv
 venv\Scripts\activate
 ```
 
-3. **Install Requirements**
+3. **Install Dependencies**
+
+Before installing, make sure you have **CMake** installed (required for dlib).
+- Windows: [CMake for Windows](https://cmake.org/download/)
+- Linux/macOS: Use your package manager (Linux: sudo apt install cmake, Mac: brew install cmake)
+
+Install project dependencies:
+
+Using [uv](https://github.com/astral-sh/uv):
 ```bash
-uv pip install -r requirements.txt
+uv pip install -r pyproject.toml
 ```
+
 
 4. **Initialize the database**
 ```bash

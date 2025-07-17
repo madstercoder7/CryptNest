@@ -1,0 +1,27 @@
+[project]
+name = "cryptnest"
+version = "0.1.0"
+description = "Password Manager"
+authors = [{ name = "Mohit Dewani", email = "madsfield76@gmail.com" }]
+dependencies = [
+    "Flask",
+    "Flask-Login",
+    "Flask-WTF",
+    "Flask-Bcrypt",
+    "Flask-SQLAlchemy",
+    "python-dotenv",
+    "face_recognition",
+    "opencv-python",
+    "pyautogui",
+    "requests",
+    "cryptography",
+    "setuptools",
+    "face_recognition_models @ git+https://github.com/ageitgey/face_recognition_models"
+]
+
+[tool.setuptools]
+packages = ["cryptnest"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
