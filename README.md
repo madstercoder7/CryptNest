@@ -39,8 +39,9 @@ cd CryptNest
 
 2. **Create Virtual Environment**
 ```bash
-python -m venv venv
-venv\Scripts\activate
+pip install uv
+uv venv
+.venv\Scripts\activate
 ```
 
 3. **Install Dependencies**
@@ -53,7 +54,7 @@ Install project dependencies:
 
 Using [uv](https://github.com/astral-sh/uv):
 ```bash
-uv pip install -r pyproject.toml
+uv sync
 ```
 
 

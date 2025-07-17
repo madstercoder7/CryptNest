@@ -19,9 +19,9 @@ dependencies = [
     "face_recognition_models @ git+https://github.com/ageitgey/face_recognition_models"
 ]
 
-[tool.setuptools]
-packages = ["cryptnest"]
-
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["app"]  
