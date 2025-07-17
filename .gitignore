@@ -11,3 +11,4 @@ intrusion_logs/
 face_data
 .venv
 cryptnest.egg-info
+uv.lock
