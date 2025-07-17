@@ -9,3 +9,5 @@ instance/
 face_data
 intrusion_logs/
 face_data
+.venv
+cryptnest.egg-info
