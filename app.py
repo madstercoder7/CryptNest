@@ -128,6 +128,7 @@ def register():
                     try:
                         move_temp_face_to_user(user.id)
                         session.pop('face_captured', None)
+                        user.face_unlock_enabled = True
                     except Exception:
                         flash("⚠️ Registered, but face could not be saved.", "warning")
 
@@ -146,7 +147,6 @@ def login():
         if user and bcrypt.check_password_hash(user.password, form.password.data):
             login_user(user)
             user.face_attempts = 0
-            user.face_unlock_enabled = True
             db.session.commit()
             flash("✅ Login successful.", "success")
             return redirect(url_for('dashboard'))
@@ -166,6 +166,11 @@ def face_login():
 
     if not user.face_unlock_enabled:
         flash("🚫 Face unlock is disabled for this user.", "danger")
+        return redirect(url_for('login'))
+    
+    encoding_path = os.path.join('face_data', f"{username}.npy")
+    if not os.path.exists(encoding_path):
+        flash("⚠️ Face data not found for this user.", "danger")
         return redirect(url_for('login'))
     
     matched_user_id, _  = verify_face_against_encodings()
