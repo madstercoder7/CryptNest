@@ -168,7 +168,7 @@ def face_login():
         flash("🚫 Face unlock is disabled for this user.", "danger")
         return redirect(url_for('login'))
     
-    encoding_path = os.path.join('face_data', f"{username}.npy")
+    encoding_path = os.path.join('face_data', f"{user.id}_face.npy")
     if not os.path.exists(encoding_path):
         flash("⚠️ Face data not found for this user.", "danger")
         return redirect(url_for('login'))

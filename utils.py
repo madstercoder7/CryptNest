@@ -2,13 +2,13 @@ import re
 import os
 import requests
 import hashlib
-import cv2
-import pyautogui
 from email.message import EmailMessage
 import smtplib
 from flask import request
 from datetime import datetime
 from dotenv import load_dotenv
+import pyautogui
+import cv2
 
 load_dotenv()
 
