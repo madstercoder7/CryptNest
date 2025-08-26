@@ -31,63 +31,21 @@
         max-width: 400px;
         width: 100%;
         box-shadow: 0 0 30px rgba(0, 255, 255, 0.08);
+        position: relative;
     }
 
-    .glass-card h3 {
-        text-align: center;
-        margin-bottom: 1.5rem;
-        font-weight: 600;
-        color: #f8f9fa;
-    }
-
-    .glass-card label {
-        color: #bbb;
-        font-size: 0.9rem;
-    }
-
-    .glass-card .form-control {
-        background-color: rgba(255, 255, 255, 0.07);
-        border: 1px solid #444;
-        color: #f1f1f1;
-    }
-
-    .glass-card .form-control::placeholder {
-        color: #888;
-    }
-
-    .glass-card .btn-outline-light {
-        border-color: #aaa;
-        color: #ddd;
-    }
-
-    .glass-card .btn-outline-light:hover {
-        background-color: #111;
-        color: #fff;
-    }
-
-    .glass-card .btn-success {
-        background-color: #00a67e;
-        color: #fff;
-        border: none;
-    }
-
-    .glass-card .btn-success:hover {
-        background-color: #00916d;
-    }
-
-    .glass-card a {
-        color: #0fd;
-        text-decoration: none;
-    }
-
-    .glass-card a:hover {
-        text-decoration: underline;
-    }
+    .glass-card .btn-success { background-color: #00a67e; border: none; }
+    .glass-card .btn-success:hover { background-color: #00916d; }
+    .glass-card .btn-outline-light { border-color: #aaa; color: #ddd; }
+    .glass-card .btn-outline-light:hover { background-color: #111; color: #fff; }
+    #face-preview { width: 100%; border-radius: 12px; display: none; margin-bottom: 0.75rem; }
 </style>
 
 <div class="fullscreen-center">
     <div class="glass-card">
         <h3>🔐 Login to <span style="color: #00ffe7;">CryptNest</span></h3>
+
+        <video id="face-preview" autoplay playsinline></video>
 
         <form method="post">
             {{ form.hidden_tag() }}
@@ -95,7 +53,7 @@
                 {{ form.username.label(class="form-label") }}
                 {{ form.username(class="form-control", placeholder="Enter your username", autocomplete="off") }}
             </div>
-            <div class="mb-3 text-center">
+            <div class="mb-3 d-grid gap-2">
                 <button type="button" class="btn btn-outline-light" id="face-unlock-btn" disabled>
                     Use Face Unlock
                 </button>
@@ -115,31 +73,66 @@
 
 <script>
     const usernameInput = document.querySelector('input[name="username"]');
-    const faceBtn = document.getElementById('face-unlock-btn');
-
-    function toggleFaceUnlock() {
-        faceBtn.disabled = usernameInput.value.trim() === '';
+    const faceBtn = document.getElementById("face-unlock-btn");
+    faceBtn.disabled = true;
+    const videoEl = document.getElementById("face-preview");
+    
+    async function startCamera() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            videoEl.srcObject = stream;
+            videoEl.style.display = "block";
+            return stream;
+        } catch (e) {
+            alert("Camera access denied/unavailable");
+            throw e;
+        }
     }
 
-    usernameInput.addEventListener('input', toggleFaceUnlock);
-    window.addEventListener('DOMContentLoaded', toggleFaceUnlock);
+    function stopStream(stream) {
+        if (!stream) return;
+        stream.getTracks().forEach(t => t.stop());
+        videoEl.style.display = "none";
+    }
 
-    faceBtn.addEventListener('click', () => {
-        const username = usernameInput.value.trim();
-        if (!username) return alert("Please enter your username first.");
+    function captureFrame() {
+        const canvas = document.createElement("canvas");
+        canvas.width = videoEl.videoWidth || 320;
+        canvas.height = videoEl.videoHeight || 240;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL("image/jpeg");
+    }
 
-        const form = document.createElement("form");
-        form.method = "POST";
-        form.action = "/face-login";
+    faceBtn.addEventListener("click", async () => {
+        const username = (usernameInput.value || '').trim();
+        if (!username) return alert("Please enter your username first");
 
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = "username";
-        input.value = username;
-
-        form.appendChild(input);
-        document.body.appendChild(form);
-        form.submit();
+        const stream = await startCamera();
+        setTimeout(async () => {
+            const dataUrl = captureFrame();
+            try {
+                const res = await fetch("/face_verify", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ image: dataUrl, username })
+                });
+                const out = await res.json();
+                if (out.success) {
+                    window.location.href = out.redirect || "/dashboard";
+                } else {
+                    alert(out.message || "Face not recognized");
+                }
+            } catch (e) {
+                alert("Face verification failed");
+            } finally {
+                stopStream(stream);
+            }
+        }, 800);
     });
+
+    usernameInput.addEventListener("input", () => {
+        faceBtn.disabled = !usernameInput.value.trim();
+    })
 </script>
 {% endblock %}

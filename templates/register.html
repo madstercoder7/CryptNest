@@ -22,70 +22,11 @@
         padding-bottom: 300px;
     }
 
-    .glass-card {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border-radius: 16px;
-        padding: 2rem;
-        max-width: 450px;
-        width: 100%;
-        box-shadow: 0 0 30px rgba(0, 255, 255, 0.08);
-    }
-
-    .glass-card h3 {
-        text-align: center;
-        margin-bottom: 1.5rem;
-        font-weight: 600;
-        color: #f8f9fa;
-    }
-
-    .glass-card label {
-        color: #bbb;
-        font-size: 0.9rem;
-    }
-
-    .glass-card .form-control {
-        background-color: rgba(255, 255, 255, 0.07);
-        border: 1px solid #444;
-        color: #f1f1f1;
-    }
-
-    .glass-card .form-control::placeholder {
-        color: #888;
-    }
-
-    .glass-card .btn-outline-light,
-    .glass-card .btn-outline-warning {
-        border-color: #aaa;
-        color: #ddd;
-    }
-
-    .glass-card .btn-outline-light:hover,
-    .glass-card .btn-outline-warning:hover {
-        background-color: #111;
-        color: #fff;
-    }
-
-    .glass-card .btn-success {
-        background-color: #00a67e;
-        color: #fff;
-        border: none;
-    }
-
-    .glass-card .btn-success:hover {
-        background-color: #00916d;
-    }
-
-    .glass-card a {
-        color: #0fd;
-        text-decoration: none;
-    }
-
-    .glass-card a:hover {
-        text-decoration: underline;
-    }
+    .glass-card .btn-success { background-color: #00a67e; border: none; }
+    .glass-card .btn-success:hover { background-color: #00916d; }
+    .glass-card .btn-outline-light, .glass-card .btn-outline-warning { border-color: #aaa; color: #ddd; }
+    .glass-card .btn-outline-light:hover, .glass-card .btn-outline-warning:hover { background-color: #111; color: #fff; }
+    #reg-video { width: 100%; border-radius: 12px; display: none; margin-bottom: 0.75rem; }
 </style>
 
 <div class="fullscreen-center">
@@ -94,18 +35,15 @@
 
         {% if session.get('face_captured') %}
             <div class="alert alert-success text-center p-2 py-1">✅ Face captured successfully</div>
-            <form method="post" class="text-center mb-3">
-                <button type="submit" name="capture_face" value="true" class="btn btn-outline-warning btn-sm w-100">
-                    Recapture Face
-                </button>
-            </form>
-        {% else %}
-            <form method="post" class="text-center mb-3">
-                <button type="submit" name="capture_face" value="true" class="btn btn-outline-light btn-sm w-100">
-                    Capture Face (Optional)
-                </button>
-            </form>
         {% endif %}
+
+        <video id="reg-video" autoplay playsinline></video>
+
+        <div class="text-center mb-3 d-grid gap-2">
+            <button class="btn btn-outline-light btn-sm w-100" type="button" id="capture-face-btn">
+                {% if session.get("face_captured") %} Recapture Face {% else %} Capture Face (Optional) {% endif %}
+            </button>
+        </div>
 
         <form method="post">
             {{ form.hidden_tag() }}
@@ -133,4 +71,58 @@
         </div>
     </div>
 </div>
+
+<script>
+    const video = document.getElementById("reg-video");
+    const btn = document.getElementById("capture-face-btn");
+
+    async function startCam() {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        video.style.display = "block";
+        return stream;
+    }
+
+    function stopCam(stream) {
+        if (stream) stream.getTracks().forEach(t => t.stop()); 
+        video.style.display = "none";
+    }
+
+    function snap() {
+        const c = document.createElement("canvas");
+        c.width = video.videoWidth || 320;
+        c.height = video.videoHeight || 240;
+        c.getContext("2d").drawImage(video, 0, 0, c.width, c.height);
+        return c.toDataURL("image/jpeg");
+    }
+
+    btn.addEventListener("click", async () => {
+        let stream;
+        try {
+            stream = await startCam();
+            setTimeout(async () => {
+                const dataUrl = snap();
+                try {
+                    const res = await fetch("/face_capture_temp", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ image: dataUrl })
+                    });
+                    const out = await res.json();
+                    if (out.success) {
+                        location.reload();
+                    } else {
+                        alert(out.message || "Could not detect a face, try again");
+                    }
+                } catch (e) {
+                    alert("Capture failed");
+                } finally {
+                    stopCam(stream);
+                }
+            }, 800); 
+        } catch (e) {
+            alert("Camera access denied/unavailable");
+        }
+    });
+</script>
 {% endblock %}

@@ -1,8 +1,11 @@
 import os
+import re
+import base64
 import numpy as np
 from datetime import datetime
 from flask import Flask, render_template, redirect, url_for, flash, request, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import or_
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin, current_user
 from flask_wtf import FlaskForm
@@ -10,7 +13,7 @@ from wtforms import PasswordField, SubmitField, StringField, EmailField
 from wtforms.validators import DataRequired, EqualTo
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
-from face_unlock import capture_face_temp, move_temp_face_to_user, verify_face_against_encodings
+from face_unlock import capture_face_temp, move_temp_face_to_user, verify_face_against_encodings, save_temp_encoding_from_bytes, verify_image_against_user_id
 from utils import get_password_strength, check_pwned, send_intrusion_alert, handle_intrusion
 
 load_dotenv()
@@ -63,7 +66,7 @@ def load_user(user_id):
 # Forms
 class RegisterForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
-    email = StringField('Email', validators=[DataRequired()])
+    email = EmailField('Email', validators=[DataRequired()])
     password = PasswordField('Password', validators=[DataRequired()])
     confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
     submit = SubmitField('Register')
@@ -94,48 +97,35 @@ def register():
             os.remove(temp_path)
 
     if request.method == 'POST':
-        if 'capture_face' in request.form:
-            # Face capture form submitted
-            success = capture_face_temp()
-            temp_path = os.path.join("face_data", "temp_face.npy")
-            if success and os.path.exists(temp_path):
-                session['face_captured'] = True
-                flash("✅ Face captured successfully", "success")
-            else:
-                session.pop('face_captured', None)
-                flash("❌ Face capture failed. Try again.", "danger")
-            return redirect(url_for('register'))
-        elif 'submit' in request.form:
-            # Registration form submitted
-            if form.validate_on_submit():
-                existing_user = User.query.filter(
-                    (User.username == form.username.data) | (User.email == form.email.data)
-                ).first()
+        if 'submit' in request.form and form.validate_on_submit():
+            existing_user = User.query.filter(or_(User.username == form.username.data, User.email == form.email.data)).first()
 
-                if existing_user:
-                    if existing_user.username == form.username.data:
-                        flash("❌ Username already exists. Try another one.", "danger")
-                    else:
-                        flash("❌ Email already registered. Try using another.", "danger")
-                    return redirect(url_for('register'))
+            if existing_user:
+                if existing_user.username == form.username.data:
+                    flash("Username already exists, try anothe one", "danger")
+                else:
+                    flash("Email already registered, try another one", "danger")
+                return redirect(url_for("register"))
+            
+            hashed_pw = bcrypt.generate_password_hash(form.password.data).decode("utf-8")
+            user = User(username=form.username.data, email=form.email.data, password=hashed_pw)
+            db.session.add(user)
+            db.session.commit()
 
-                hashed_pw = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
-                user = User(username=form.username.data, email=form.email.data, password=hashed_pw)
-                db.session.add(user)
-                db.session.commit()
+            if session.get("face_captured"):
+                try:
+                    move_temp_face_to_user(user.id)
+                    session.pop("face_captured", None)
+                    user.face_unlock_enabled = True
+                    db.session.commit()
+                except Exception:
+                    flash("Registered but face could not be saved", "warning")
 
-                if session.get('face_captured'):
-                    try:
-                        move_temp_face_to_user(user.id)
-                        session.pop('face_captured', None)
-                        user.face_unlock_enabled = True
-                    except Exception:
-                        flash("⚠️ Registered, but face could not be saved.", "warning")
-
-                flash("✅ Registration successful. Please login.", "success")
-                return redirect(url_for('login'))
-            else:
-                flash("❌ Form validation failed. Please check your input.", "danger")
+            flash("Registration successful, please login", "success")
+            return redirect(url_for("login"))
+        
+        elif "submit" in request.form:
+            flash("Form validation failed, please check your input", "danger")
 
     return render_template("register.html", form=form)
 
@@ -154,6 +144,73 @@ def login():
             flash("❌ Incorrect username or password.", "danger")
 
     return render_template("login.html", form=form)
+
+@app.route("/face_capture_temp", methods=["POST"])
+def face_capture_temp():
+    data = request.get_json(silent=True) or {}
+    image_data = data.get("image")
+    if not image_data:
+        return jsonify({"success": False, "message": "No image provided"}), 400
+    
+    try:
+        b64 = re.sub(r'^data:image/.+;base64,', '', image_data)
+        img_bytes = base64.b64decode(b64)
+        ok = save_temp_encoding_from_bytes(img_bytes)
+        if ok:
+            session["face_captured"] = True
+            return jsonify({"success": True})
+        else:
+            session.pop("face_captured", None)
+            return jsonify({"success": False, "message": "No face captured"}), 422
+    except Exception as e:
+        session.pop("face_captured", None)
+        return jsonify({"success": False, "message": f"Failed: {e}"}), 500
+    
+@app.route("/face_verify", methods=["POST"])
+def face_verify():
+    data = request.get_json(silent=True) or {}
+    image_data = data.get("image")
+    username = data.get("username", "").strip()
+
+    if not username:
+        return jsonify({"success": False, "message": "Username required"}), 400
+    if not image_data:
+        return jsonify({"success": False, "message": "No image provided"}), 400
+    
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({"success": False, "message": "USer not found"}), 404
+    
+    if not user.face_unlock_enabled:
+        return jsonify({"success": False, "message": "Face unlock disabled"}), 403
+    
+    encoding_path = os.path.join("face_data", f"{user.id}_face.npy")
+    if not os.path.exists(encoding_path):
+        return jsonify({"success": False, "message": "No face data for this user"}), 404
+    
+    try:
+        b64 = re.sub(r'^data:image/.+;base64,', '', image_data)
+        img_bytes = base64.b64decode(b64)
+    except Exception:
+        return jsonify({"success": False, "message": "Invalid image payload"}), 400
+    
+    matched = verify_image_against_user_id(img_bytes, user.id)
+
+    if matched:
+        login_user(user)
+        user.face_attempts = 0
+        db.session.commit()
+        return jsonify({"success": True, "redirect": url_for("dashboard")})
+    else:
+        user.face_attempts += 1
+        db.session.commit()
+        if user.face_attempts >= 3:
+            user.face_unlock_enabled = False
+            db.session.commit()
+            handle_intrusion(user)
+            return jsonify({"success": False, "message": "Face unlock disbaled after 3 failed attempts"}), 423
+        else:
+            return jsonify({"success": False, "message": f"Face not recognized, attempt {user.face_attempts}/3"}), 401
 
 @app.route('/face-login', methods=['POST'])
 def face_login():

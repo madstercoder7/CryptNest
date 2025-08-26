@@ -9,6 +9,37 @@ ENCODING_DIR = "face_data"
 TEMP_FACE_PATH = os.path.join(ENCODING_DIR, "temp_face.npy")
 os.makedirs(ENCODING_DIR, exist_ok=True)
 
+def encoding_from_image_bytes(image_bytes):
+    np_arr = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    if img is None:
+        return None
+    rgb= cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    encodings = face_recognition.face_encodings(rgb)
+    if not encodings:
+        return None
+    return encodings[0]
+
+def save_temp_encoding_from_bytes(image_bytes):
+    enc = encoding_from_image_bytes(image_bytes)
+    if enc is None:
+        return False
+    np.save(TEMP_FACE_PATH, enc)
+    return True
+
+def verify_image_against_user_id(image_bytes, user_id, tolerance=0.45):
+    user_path = os.path.join(ENCODING_DIR, f"{user_id}_face.npy")
+    if not os.path.exists(user_path):
+        return False
+    stored = np.load(user_path)
+
+    current = encoding_from_image_bytes(image_bytes)
+    if current is None:
+        return False
+    
+    distances = face_recognition.face_distance([stored], current)
+    return bool(distances[0] < tolerance)
+
 def capture_face_temp():
     video = cv2.VideoCapture(0)
     latest_encoding = None
