@@ -231,8 +231,12 @@
             alert("🔒 Reveal the password first.");
             return;
         }
-        input.select();
-        document.execCommand("copy");
+        navigator.clipboard.writeText(input.value)
+            .then(() => {
+                button.textContent = "Copied!";
+                setTimeout(() => button.textContent = "Copy", 1000);
+            })
+            .catch(() => alert("Copy failed, try manually"));
         button.textContent = "Copied!";
         setTimeout(() => button.textContent = "Copy", 1000);
     }

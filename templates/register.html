@@ -22,20 +22,36 @@
         padding-bottom: 300px;
     }
 
-    .glass-card .btn-success { background-color: #00a67e; border: none; }
-    .glass-card .btn-success:hover { background-color: #00916d; }
-    .glass-card .btn-outline-light, .glass-card .btn-outline-warning { border-color: #aaa; color: #ddd; }
-    .glass-card .btn-outline-light:hover, .glass-card .btn-outline-warning:hover { background-color: #111; color: #fff; }
-    #reg-video { width: 100%; border-radius: 12px; display: none; margin-bottom: 0.75rem; }
+    .glass-card .btn-success {
+        background-color: #00a67e;
+        border: none;
+    }
+
+    .glass-card .btn-success:hover {
+        background-color: #00916d;
+    }
+
+    .glass-card .btn-outline-light, .glass-card .btn-outline-warning {
+        border-color: #aaa;
+        color: #ddd;
+    }
+
+    .glass-card .btn-outline-light:hover, .glass-card .btn-outline-warning:hover {
+        background-color: #111;
+        color: #fff;
+    }
+    
+    #reg-video {
+        width: 100;
+        border-radius: 12px;
+        display: none;
+        margin-bottom: 0.75rem;
+    }
 </style>
 
 <div class="fullscreen-center">
     <div class="glass-card">
-        <h3>📝 Register on <span style="color: #00ffe7;">CryptNest</span></h3>
-
-        {% if session.get('face_captured') %}
-            <div class="alert alert-success text-center p-2 py-1">✅ Face captured successfully</div>
-        {% endif %}
+        <h3>Register on <span style="color: #00ffe7;">CryptNest</span></h3>
 
         <video id="reg-video" autoplay playsinline></video>
 
@@ -47,6 +63,7 @@
 
         <form method="post">
             {{ form.hidden_tag() }}
+            <input type="hidden" id="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-3">
                 {{ form.username.label(class="form-label") }}
                 {{ form.username(class="form-control", placeholder="Enter your username", autocomplete="off") }}
@@ -57,24 +74,25 @@
             </div>
             <div class="mb-3">
                 {{ form.password.label(class="form-label") }}
-                {{ form.password(class="form-control", placeholder="Enter your password") }}
-            </div>
-            <div class="mb-3">
-                {{ form.confirm_password.label(class="form-label") }}
-                {{ form.confirm_password(class="form-control", placeholder="Confirm your password") }}
+                <div class="input-group">
+                    {{ form.password(class="form-control", placeholder="Enter your password", id="password") }}
+                    <button class="btn btn-outline-light" onclick="togglePassword('password')" type="button">👁</button>
+                </div>
+                <small class="text-muted" id="strength-text"></small>
             </div>
             {{ form.submit(class="btn btn-success w-100") }}
         </form>
 
         <div class="mt-3 text-center">
-            <small>Already have an account? <a href="{{ url_for('login') }}">Login here</a></small>
+            <small>Already have an account? <a href="{{ url_for('login') }}">Login</a> here</small>
         </div>
     </div>
 </div>
 
 <script>
     const video = document.getElementById("reg-video");
-    const btn = document.getElementById("capture-face-btn");
+    const faceCaptureBtn = document.getElementById("capture-face-btn");
+    const csrfToken = document.getElementById("csrf_token").value;
 
     async function startCam() {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -84,7 +102,7 @@
     }
 
     function stopCam(stream) {
-        if (stream) stream.getTracks().forEach(t => t.stop()); 
+        if (stream) stream.getTracks().forEach(t => t.stop());
         video.style.display = "none";
     }
 
@@ -96,7 +114,7 @@
         return c.toDataURL("image/jpeg");
     }
 
-    btn.addEventListener("click", async () => {
+    faceCaptureBtn.addEventListener("click", async () => {
         let stream;
         try {
             stream = await startCam();
@@ -105,24 +123,41 @@
                 try {
                     const res = await fetch("/face_capture_temp", {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ image: dataUrl })
+                        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+                        body: JSON.stringify({ Image: dataUrl })
                     });
                     const out = await res.json();
                     if (out.success) {
+                        showToast("Face captured successfully", "success");
                         location.reload();
                     } else {
-                        alert(out.message || "Could not detect a face, try again");
+                        showToast(out.message || "Could not detect a face, try again", "danger");
                     }
                 } catch (e) {
-                    alert("Capture failed");
+                    showToast("Capture failed", "danger");
                 } finally {
                     stopCam(stream);
                 }
-            }, 800); 
+            }, 800);
         } catch (e) {
-            alert("Camera access denied/unavailable");
+            showToast("Camera access denied/unavailable", "danger");
         }
     });
+
+    document.getElementById("password").addEventListener("input", function() {
+        const val = this.value;
+        let strength = "Weak";
+        if (val.length > 8 && /[A-Z]/.test(val) && /\d/.test(val) ** /[^A-Za-z0-9]/.test(val)) {
+            strength = "Strong";
+        } else if (val.length > 6) {
+            strength = "Medium";
+        }
+        document.getElementById("strength-text").innerText = strength;
+    });
+
+    function togglePassword(id) {
+        const input = document.getElementById(id);
+        input.type = input.type === "password" ? "text" : "password";
+    }
 </script>
 {% endblock %}

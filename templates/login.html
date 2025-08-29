@@ -21,52 +21,61 @@
         overflow: hidden;
         padding-bottom: 300px;
     }
-
-    .glass-card {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        backdrop-filter: blur(12px);
-        border-radius: 16px;
-        padding: 2rem;
-        max-width: 400px;
-        width: 100%;
-        box-shadow: 0 0 30px rgba(0, 255, 255, 0.08);
-        position: relative;
+    
+    .glass-card .btn-success { 
+        background-color: #00a67e; 
+        border: none; 
     }
 
-    .glass-card .btn-success { background-color: #00a67e; border: none; }
-    .glass-card .btn-success:hover { background-color: #00916d; }
-    .glass-card .btn-outline-light { border-color: #aaa; color: #ddd; }
-    .glass-card .btn-outline-light:hover { background-color: #111; color: #fff; }
-    #face-preview { width: 100%; border-radius: 12px; display: none; margin-bottom: 0.75rem; }
+    .glass-card .btn-success:hover { 
+        background-color: #00916d; 
+    }
+
+    .glass-card .btn-outline-light { 
+        border-color: #aaa; 
+        color: #ddd; 
+    }
+
+    .glass-card .btn-outline-light:hover { 
+        background-color: #111; 
+        color: #fff; 
+    }
+
+    #face-preview {
+        width: 100%;
+        border-radius: 12px;
+        display: none;
+        margin-bottom: 0.75rem;
+    }
 </style>
 
 <div class="fullscreen-center">
     <div class="glass-card">
-        <h3>🔐 Login to <span style="color: #00ffe7;">CryptNest</span></h3>
-
+        <h3>Login to <span style="color: #00ffe7;">CryptNest</span></h3>
         <video id="face-preview" autoplay playsinline></video>
 
         <form method="post">
             {{ form.hidden_tag() }}
+            <input type="hidden" id="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-3">
                 {{ form.username.label(class="form-label") }}
-                {{ form.username(class="form-control", placeholder="Enter your username", autocomplete="off") }}
+                {{ form.username(class="form-control", placeholder="Enter your username" autocomplete="off") }}
             </div>
             <div class="mb-3 d-grid gap-2">
-                <button type="button" class="btn btn-outline-light" id="face-unlock-btn" disabled>
-                    Use Face Unlock
-                </button>
+                <button type="button" class="btn btn-outline-light" id="face-unlock-btn" disabled>Use Face Unlock</button>
             </div>
             <div class="mb-3">
                 {{ form.password.label(class="form-label") }}
-                {{ form.password(class="form-control", placeholder="Enter your password") }}
+                <div class="input-group">
+                    {{ form.password(class="form-control") }}
+                    <button class="btn btn-outline-light" onclick="togglePassword()" type="button">👁</button>
+                </div>
             </div>
             {{ form.submit(class="btn btn-success w-100") }}
         </form>
 
         <div class="mt-3 text-center">
-            <small>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></small>
+            <small>Dont have an account? <a href="{{ url_for('register') }}">Register here</a></small>
         </div>
     </div>
 </div>
@@ -76,22 +85,22 @@
     const faceBtn = document.getElementById("face-unlock-btn");
     faceBtn.disabled = true;
     const videoEl = document.getElementById("face-preview");
-    
+
     async function startCamera() {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true});
             videoEl.srcObject = stream;
             videoEl.style.display = "block";
-            return stream;
+            return stream; 
         } catch (e) {
-            alert("Camera access denied/unavailable");
+            showToast("Camera access denied/unavailable", "danger");
             throw e;
         }
     }
 
     function stopStream(stream) {
         if (!stream) return;
-        stream.getTracks().forEach(t => t.stop());
+        stream.getTracks().forEach(t = t.stop());
         videoEl.style.display = "none";
     }
 
@@ -106,7 +115,7 @@
 
     faceBtn.addEventListener("click", async () => {
         const username = (usernameInput.value || '').trim();
-        if (!username) return alert("Please enter your username first");
+        if (!username) return showToast("Please enter your usenrame first", "warning");
 
         const stream = await startCamera();
         setTimeout(async () => {
@@ -114,17 +123,18 @@
             try {
                 const res = await fetch("/face_verify", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { "Content-Type": "application/json", "X-CSRFToken": document.getElementById("csrf_token").value },
                     body: JSON.stringify({ image: dataUrl, username })
                 });
                 const out = await res.json();
                 if (out.success) {
+                    showToast("Face recognized, redirecting", "success");
                     window.location.href = out.redirect || "/dashboard";
                 } else {
-                    alert(out.message || "Face not recognized");
+                    showToast(out.message || "Face not recognized, try again", "danger");
                 }
             } catch (e) {
-                alert("Face verification failed");
+                showToast("Face verification failed", "danger");
             } finally {
                 stopStream(stream);
             }
@@ -133,6 +143,11 @@
 
     usernameInput.addEventListener("input", () => {
         faceBtn.disabled = !usernameInput.value.trim();
-    })
+    });
+
+    function togglePassword() {
+        const input = document.getElementById("password");
+        input.type = input.type === "password" ? "text" : "password";
+    }
 </script>
 {% endblock %}
