@@ -42,7 +42,7 @@
     }
     
     #reg-video {
-        width: 100;
+        width: 100%;
         border-radius: 12px;
         display: none;
         margin-bottom: 0.75rem;
@@ -124,7 +124,7 @@
                     const res = await fetch("/face_capture_temp", {
                         method: "POST",
                         headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
-                        body: JSON.stringify({ Image: dataUrl })
+                        body: JSON.stringify({ image: dataUrl })
                     });
                     const out = await res.json();
                     if (out.success) {
@@ -147,7 +147,7 @@
     document.getElementById("password").addEventListener("input", function() {
         const val = this.value;
         let strength = "Weak";
-        if (val.length > 8 && /[A-Z]/.test(val) && /\d/.test(val) ** /[^A-Za-z0-9]/.test(val)) {
+        if (val.length > 8 && /[A-Z]/.test(val) && /\d/.test(val) && /[^A-Za-z0-9]/.test(val)) {
             strength = "Strong";
         } else if (val.length > 6) {
             strength = "Medium";

@@ -84,7 +84,7 @@
         }
 
         document.addEventListener("DOMContentLoaded", function () {
-            const toastElList = [].slice.call(document.querySelector('.toast'));
+            const toastElList = [].slice.call(document.querySelectorAll('.toast'));
             toastElList.map(function (toastEl) {
                 return new bootstrap.Toast(toastEl, { delay: 3000 }).show();
             });

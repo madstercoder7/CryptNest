@@ -67,7 +67,7 @@
             <div class="mb-3">
                 {{ form.password.label(class="form-label") }}
                 <div class="input-group">
-                    {{ form.password(class="form-control") }}
+                    {{ form.password(class="form-control", placeholder="Enter your password", id="password") }}
                     <button class="btn btn-outline-light" onclick="togglePassword()" type="button">👁</button>
                 </div>
             </div>
@@ -100,7 +100,7 @@
 
     function stopStream(stream) {
         if (!stream) return;
-        stream.getTracks().forEach(t = t.stop());
+        stream.getTracks().forEach(t => t.stop());
         videoEl.style.display = "none";
     }
 
@@ -115,7 +115,7 @@
 
     faceBtn.addEventListener("click", async () => {
         const username = (usernameInput.value || '').trim();
-        if (!username) return showToast("Please enter your usenrame first", "warning");
+        if (!username) return showToast("Please enter your username first", "warning");
 
         const stream = await startCamera();
         setTimeout(async () => {
