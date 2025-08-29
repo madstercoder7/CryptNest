@@ -127,6 +127,10 @@ def register():
         elif "submit" in request.form:
             flash("Form validation failed, please check your input", "danger")
 
+        if not form.validate_on_submit():
+            print(form.errors)
+            flash(f"Form validation failed: {form.errors}", "danger")
+
     return render_template("register.html", form=form)
 
 @app.route('/login', methods=['GET', 'POST'])

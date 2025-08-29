@@ -56,10 +56,9 @@
 
         <form method="post">
             {{ form.hidden_tag() }}
-            <input type="hidden" id="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-3">
                 {{ form.username.label(class="form-label") }}
-                {{ form.username(class="form-control", placeholder="Enter your username" autocomplete="off") }}
+                {{ form.username(class="form-control", placeholder="Enter your username", autocomplete="off") }}
             </div>
             <div class="mb-3 d-grid gap-2">
                 <button type="button" class="btn btn-outline-light" id="face-unlock-btn" disabled>Use Face Unlock</button>

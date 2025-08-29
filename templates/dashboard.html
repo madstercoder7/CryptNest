@@ -135,7 +135,7 @@
 
 <div class="vault-card">
     <h2 class="text-info mb-4">🔐 CryptNest Vault</h2>
-        <form action="{{ url_for('dashboard') }}" method="post">
+        <form action="{{ url_for('dashboard') }}" method="post" id="vault-form">
             {{ form.hidden_tag() }}
             <div class="row g-4">
                 <div class="col-md-4">
@@ -199,7 +199,7 @@
                 <td>{{ cred.strength or 'N/A' }}</td>
                 <td>
                     <div class="d-flex gap-1">
-                        <form action="{{ url_for('delete_credential', cred_id=cred.id) }}" method="post">
+                        <form action="{{ url_for('delete_credential', cred_id=cred.id) }}" method="post" onsubmit="return confirmDelete(event)">
                             <button class="btn btn-sm btn-danger">Delete</button>
                         </form>
                         <button class="btn btn-sm btn-secondary" onclick="copyToClipboard(this)">Copy</button>
@@ -214,6 +214,8 @@
 </div>
 
 <script>
+    const csrfToken = document.querySelector(`#vault-form input[name="csrf_token"]`).value;
+
     function generatePassword() {
         const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+{}[]|:;<>,.?/";
         let password = "";
@@ -228,17 +230,16 @@
     function copyToClipboard(button) {
         const input = button.closest('tr').querySelector('input');
         if (input.value === '********') {
-            alert("🔒 Reveal the password first.");
+            showToast("🔒 Reveal the password first.", "warning");
             return;
         }
         navigator.clipboard.writeText(input.value)
             .then(() => {
                 button.textContent = "Copied!";
+                showToast("Password copied", "success");
                 setTimeout(() => button.textContent = "Copy", 1000);
             })
-            .catch(() => alert("Copy failed, try manually"));
-        button.textContent = "Copied!";
-        setTimeout(() => button.textContent = "Copy", 1000);
+            .catch(() => showToast("Copy failed, try manually", "danger"));
     }
 
     function revealPassword(button) {
@@ -246,19 +247,49 @@
         const input = document.getElementById(`password-${credId}`);
 
         if (input.type === "password") {
-            fetch(`/reveal_password/${credId}`, { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
+            fetch(`/reveal_password/${credId}`, {
+                method: 'POST',
+                headers: { 
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
                     input.type = "text";
                     input.value = data.password;
                     button.textContent = "Hide";
-                })
-                .catch(err => console.error("Error revealing password: ", err));
+                    showToast("Password revealed", "success");
+
+                    // Auto-hide after 15s
+                    setTimeout(() => {
+                        if (input.type === "text") {
+                            input.type = "password";
+                            input.value = "********";
+                            button.textContent = "Reveal";
+                            showToast("Password auto-hidden", "info");
+                        }
+                    }, 15000);
+                } else {
+                    showToast(data.message || "Failed to reveal password", "danger");
+                }
+            })
+            .catch(() => showToast("Error revealing password", "danger"));
         } else {
             input.type = "password";
             input.value = "********";
             button.textContent = "Reveal";
         }
+    }
+
+    function confirmDelete(e) {
+        if (!confirm("Are you sure you want to delete this credential?")) {
+            e.preventDefault();
+            return false;
+        }
+        showToast("Credential deleted", "info");
+        return true;
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -286,7 +317,7 @@
             else return { strength: "Strong", percent: 100, color: "#00e676" };
         }
     });
-
 </script>
+
 
 {% endblock %}

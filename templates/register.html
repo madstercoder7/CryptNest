@@ -1,57 +1,57 @@
 {% extends "layout.html" %}
 {% block content %}
 <style>
-    html, body {
-        height: 100%;
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        background-color: black;
-        color: #f1f1f1;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
+html, body { 
+    height: 100%; 
+    margin: 0; 
+    padding: 0; 
+    overflow: hidden; 
+    background-color: black; 
+    color: #f1f1f1; 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+} 
 
-    .fullscreen-center {
-        min-height: 100vh;
-        padding-top: 70px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background-color: black;
-        overflow: hidden;
-        padding-bottom: 300px;
-    }
+.fullscreen-center { 
+    min-height: 100vh; 
+    padding-top: 70px; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    background-color: black; 
+    overflow: hidden; 
+    padding-bottom: 300px; 
+}
 
-    .glass-card .btn-success {
-        background-color: #00a67e;
-        border: none;
-    }
+.glass-card .btn-success { 
+    background-color: #00a67e; 
+    border: none; 
+}
 
-    .glass-card .btn-success:hover {
-        background-color: #00916d;
-    }
+.glass-card .btn-success:hover { 
+    background-color: #00916d; 
+}
 
-    .glass-card .btn-outline-light, .glass-card .btn-outline-warning {
-        border-color: #aaa;
-        color: #ddd;
-    }
+.glass-card .btn-outline-light, .glass-card .btn-outline-warning { 
+    border-color: #aaa; 
+    color: #ddd; 
+} 
 
-    .glass-card .btn-outline-light:hover, .glass-card .btn-outline-warning:hover {
-        background-color: #111;
-        color: #fff;
-    }
-    
-    #reg-video {
-        width: 100%;
-        border-radius: 12px;
-        display: none;
-        margin-bottom: 0.75rem;
-    }
+.glass-card .btn-outline-light:hover, .glass-card .btn-outline-warning:hover { 
+    background-color: #111; 
+    color: #fff; 
+}
+
+#reg-video { 
+    width: 100%; 
+    border-radius: 12px; 
+    display: none; 
+    margin-bottom: 0.75rem; 
+}
 </style>
 
 <div class="fullscreen-center">
     <div class="glass-card">
-        <h3>Register on <span style="color: #00ffe7;">CryptNest</span></h3>
+        <h3>Register on <span style="color:#00ffe7;">CryptNest</span></h3>
 
         <video id="reg-video" autoplay playsinline></video>
 
@@ -61,9 +61,8 @@
             </button>
         </div>
 
-        <form method="post">
-            {{ form.hidden_tag() }}
-            <input type="hidden" id="csrf_token" value="{{ csrf_token() }}">
+        <form method="post" id="register-form">
+            {{ form.csrf_token }}
             <div class="mb-3">
                 {{ form.username.label(class="form-label") }}
                 {{ form.username(class="form-control", placeholder="Enter your username", autocomplete="off") }}
@@ -76,9 +75,16 @@
                 {{ form.password.label(class="form-label") }}
                 <div class="input-group">
                     {{ form.password(class="form-control", placeholder="Enter your password", id="password") }}
-                    <button class="btn btn-outline-light" onclick="togglePassword('password')" type="button">👁</button>
+                    <button class="btn btn-outline-light" type="button" onclick="togglePassword('password')">👁</button>
                 </div>
                 <small class="text-muted" id="strength-text"></small>
+            </div>
+            <div class="mb-3">
+                {{ form.confirm_password.label(class="form-label") }}
+                <div class="input-group">
+                    {{ form.confirm_password(class="form-control", placeholder="Confirm your password", id="confirm_password") }}
+                    <button class="btn btn-outline-light" type="button" onclick="togglePassword('confirm_password')">👁</button>
+                </div>
             </div>
             {{ form.submit(class="btn btn-success w-100") }}
         </form>
@@ -90,74 +96,76 @@
 </div>
 
 <script>
-    const video = document.getElementById("reg-video");
-    const faceCaptureBtn = document.getElementById("capture-face-btn");
-    const csrfToken = document.getElementById("csrf_token").value;
+const video = document.getElementById("reg-video");
+const faceCaptureBtn = document.getElementById("capture-face-btn");
 
-    async function startCam() {
+async function startCam() {
+    try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         video.srcObject = stream;
+        await video.play();
         video.style.display = "block";
         return stream;
+    } catch {
+        throw new Error("Camera access denied/unavailable");
     }
+}
 
-    function stopCam(stream) {
-        if (stream) stream.getTracks().forEach(t => t.stop());
-        video.style.display = "none";
-    }
+function stopCam(stream) {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    video.style.display = "none";
+}
 
-    function snap() {
-        const c = document.createElement("canvas");
-        c.width = video.videoWidth || 320;
-        c.height = video.videoHeight || 240;
-        c.getContext("2d").drawImage(video, 0, 0, c.width, c.height);
-        return c.toDataURL("image/jpeg");
-    }
+function snap() {
+    const c = document.createElement("canvas");
+    c.width = video.videoWidth || 320;
+    c.height = video.videoHeight || 240;
+    c.getContext("2d").drawImage(video, 0, 0, c.width, c.height);
+    return c.toDataURL("image/jpeg");
+}
 
-    faceCaptureBtn.addEventListener("click", async () => {
-        let stream;
-        try {
-            stream = await startCam();
-            setTimeout(async () => {
-                const dataUrl = snap();
-                try {
-                    const res = await fetch("/face_capture_temp", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
-                        body: JSON.stringify({ image: dataUrl })
-                    });
-                    const out = await res.json();
-                    if (out.success) {
-                        showToast("Face captured successfully", "success");
-                        location.reload();
-                    } else {
-                        showToast(out.message || "Could not detect a face, try again", "danger");
-                    }
-                } catch (e) {
-                    showToast("Capture failed", "danger");
-                } finally {
-                    stopCam(stream);
+faceCaptureBtn.addEventListener("click", async () => {
+    let stream;
+    try {
+        stream = await startCam();
+        // wait a short time to ensure camera ready
+        setTimeout(async () => {
+            const dataUrl = snap();
+            try {
+                const res = await fetch("/face_capture_temp", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ image: dataUrl })
+                });
+                const out = await res.json();
+                if (out.success) {
+                    showToast("Face captured successfully", "success");
+                    faceCaptureBtn.textContent = "Recapture Face";
+                } else {
+                    showToast(out.message || "Could not detect a face, try again", "danger");
                 }
-            }, 800);
-        } catch (e) {
-            showToast("Camera access denied/unavailable", "danger");
-        }
-    });
-
-    document.getElementById("password").addEventListener("input", function() {
-        const val = this.value;
-        let strength = "Weak";
-        if (val.length > 8 && /[A-Z]/.test(val) && /\d/.test(val) && /[^A-Za-z0-9]/.test(val)) {
-            strength = "Strong";
-        } else if (val.length > 6) {
-            strength = "Medium";
-        }
-        document.getElementById("strength-text").innerText = strength;
-    });
-
-    function togglePassword(id) {
-        const input = document.getElementById(id);
-        input.type = input.type === "password" ? "text" : "password";
+            } catch {
+                showToast("Capture failed", "danger");
+            } finally {
+                stopCam(stream);
+            }
+        }, 500);
+    } catch (e) {
+        showToast(e.message, "danger");
     }
+});
+
+document.getElementById("password").addEventListener("input", function() {
+    const val = this.value;
+    let strength = "Weak";
+    if (val.length > 8 && /[A-Z]/.test(val) && /\d/.test(val) && /[^A-Za-z0-9]/.test(val)) strength = "Strong";
+    else if (val.length > 6) strength = "Medium";
+    document.getElementById("strength-text").innerText = strength;
+});
+
+function togglePassword(id) {
+    const input = document.getElementById(id);
+    input.type = input.type === "password" ? "text" : "password";
+}
 </script>
 {% endblock %}
