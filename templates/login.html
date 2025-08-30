@@ -41,7 +41,7 @@
         color: #fff; 
     }
 
-    #face-preview {
+    #video {
         width: 100%;
         border-radius: 12px;
         display: none;
@@ -52,16 +52,14 @@
 <div class="fullscreen-center">
     <div class="glass-card">
         <h3>Login to <span style="color: #00ffe7;">CryptNest</span></h3>
-        <video id="face-preview" autoplay playsinline></video>
+        <button type="button" class="btn btn-secondary" id="faceLoginBtn">Login with Face</button>
+        <video id="loginVideo" width="300" height="225" autoplay muted></video>
 
         <form method="post">
             {{ form.hidden_tag() }}
             <div class="mb-3">
                 {{ form.username.label(class="form-label") }}
                 {{ form.username(class="form-control", placeholder="Enter your username", autocomplete="off") }}
-            </div>
-            <div class="mb-3 d-grid gap-2">
-                <button type="button" class="btn btn-outline-light" id="face-unlock-btn" disabled>Use Face Unlock</button>
             </div>
             <div class="mb-3">
                 {{ form.password.label(class="form-label") }}
@@ -80,14 +78,21 @@
 </div>
 
 <script>
+    Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri('/static/models'),
+        faceapi.nets.faceLandmark68Net.loadFromUri('/static/models'),
+        faceapi.nets.faceRecognitionNet.loadFromUri('/static/models')
+    ]).then(() => console.log("Models loaded"))
+
+
     const usernameInput = document.querySelector('input[name="username"]');
-    const faceBtn = document.getElementById("face-unlock-btn");
+    const faceBtn = document.getElementById("faceLoginBtn");
     faceBtn.disabled = true;
-    const videoEl = document.getElementById("face-preview");
+    const videoEl = document.getElementById("loginVideo");
 
     async function startCamera() {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true});
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             videoEl.srcObject = stream;
             videoEl.style.display = "block";
             return stream; 
@@ -112,32 +117,47 @@
         return canvas.toDataURL("image/jpeg");
     }
 
+    async function captureFaceDescriptor(videoEl) {
+        const detection = await faceapi.detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+        if (!detection) {
+            showToast("No face detected, try again", "warning");
+            return null;
+        }
+        return detection.descriptor;
+    }
+
     faceBtn.addEventListener("click", async () => {
         const username = (usernameInput.value || '').trim();
         if (!username) return showToast("Please enter your username first", "warning");
 
-        const stream = await startCamera();
-        setTimeout(async () => {
-            const dataUrl = captureFrame();
-            try {
-                const res = await fetch("/face_verify", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "X-CSRFToken": document.getElementById("csrf_token").value },
-                    body: JSON.stringify({ image: dataUrl, username })
-                });
-                const out = await res.json();
-                if (out.success) {
-                    showToast("Face recognized, redirecting", "success");
-                    window.location.href = out.redirect || "/dashboard";
-                } else {
-                    showToast(out.message || "Face not recognized, try again", "danger");
+        let stream;
+        try {
+            stream = await startCamera();
+            setTimeout(async () => {
+                const descriptor = await captureFaceDescriptor(videoEl);
+                if (descriptor) {
+                    try {
+                        const res = await fetch("/verify_face_descriptor", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ username, descriptor: Array.from(descriptor) })
+                        });
+                        const out = await res.json();
+                        if (out.success) {
+                            showToast("Face recognized", "success");
+                            window.location.href = out.redirect || "/dashboard";
+                        } else {
+                            showToast(out.message || "Face not recognized", "danger");
+                        }
+                    } catch (e) {
+                        showToast("Face verification failed", "danger");
+                    }
                 }
-            } catch (e) {
-                showToast("Face verification failed", "danger");
-            } finally {
                 stopStream(stream);
-            }
-        }, 800);
+            }, 800);
+        } catch (e) {
+            showToast(e.message, "danger");
+        }
     });
 
     usernameInput.addEventListener("input", () => {

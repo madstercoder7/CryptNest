@@ -58,13 +58,6 @@
         background-color: #222222;
     }
 
-
-    .input-group .btn {
-        border: 1px solid #aaa;
-        color: #eee;
-        background-color: transparent;
-    }
-
     .input-group .btn:hover {
         background-color: #222222;
     }
@@ -214,7 +207,7 @@
 </div>
 
 <script>
-    const csrfToken = document.querySelector(`#vault-form input[name="csrf_token"]`).value;
+    const csrfToken = document.querySelector("#vault-form input[name='csrf_token']").value;
 
     function generatePassword() {
         const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+{}[]|:;<>,.?/";

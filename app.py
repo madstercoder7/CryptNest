@@ -2,9 +2,11 @@ import os
 import re
 import base64
 import numpy as np
+import json
 from datetime import datetime
 from flask import Flask, render_template, redirect, url_for, flash, request, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from sqlalchemy import or_
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin, current_user
@@ -13,8 +15,9 @@ from wtforms import PasswordField, SubmitField, StringField, EmailField
 from wtforms.validators import DataRequired, EqualTo
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
-from face_unlock import capture_face_temp, move_temp_face_to_user, verify_face_against_encodings, save_temp_encoding_from_bytes, verify_image_against_user_id
+'''from face_unlock import capture_face_temp, move_temp_face_to_user, verify_face_against_encodings, save_temp_encoding_from_bytes, verify_image_against_user_id'''
 from utils import get_password_strength, check_pwned, send_intrusion_alert, handle_intrusion
+from scipy.spatial.distance import euclidean
 
 load_dotenv()
 
@@ -24,6 +27,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cryptnest.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -49,6 +53,7 @@ class User(db.Model, UserMixin):
     password = db.Column(db.String(128), nullable=False)
     face_unlock_enabled = db.Column(db.Boolean, default=True)
     face_attempts = db.Column(db.Integer, default=0)
+    face_descriptor = db.Column(db.Text, nullable=True)
 
 class Credential(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -87,53 +92,29 @@ class CredentialForm(FlaskForm):
 def home():
     return render_template("landing.html")
 
-@app.route('/register', methods=['GET', 'POST'])
+@app.route("/register", methods=["GET", "POST"])
 def register():
     form = RegisterForm()
-    temp_path = os.path.join("face_data", "temp_face.npy")
-
-    if request.method == 'GET' and 'face_captured' not in session:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-
-    if request.method == 'POST':
-        if 'submit' in request.form and form.validate_on_submit():
-            existing_user = User.query.filter(or_(User.username == form.username.data, User.email == form.email.data)).first()
-
-            if existing_user:
-                if existing_user.username == form.username.data:
-                    flash("Username already exists, try anothe one", "danger")
-                else:
-                    flash("Email already registered, try another one", "danger")
-                return redirect(url_for("register"))
-            
-            hashed_pw = bcrypt.generate_password_hash(form.password.data).decode("utf-8")
-            user = User(username=form.username.data, email=form.email.data, password=hashed_pw)
-            db.session.add(user)
-            db.session.commit()
-
-            if session.get("face_captured"):
-                try:
-                    move_temp_face_to_user(user.id)
-                    session.pop("face_captured", None)
-                    user.face_unlock_enabled = True
-                    db.session.commit()
-                except Exception:
-                    flash("Registered but face could not be saved", "warning")
-
-            flash("Registration successful, please login", "success")
-            return redirect(url_for("login"))
+    if form.validate_on_submit():
+        existing_user = User.query.filter(or_(User.username == form.username.data, User.email == form.email.data)).first()
+        if existing_user:
+            if existing_user.username == form.username.data:
+                flash("Username already exists, try another", "danger")
+            else:
+                flash("Email already registered, try anther", "danger")
+            return redirect(url_for("register"))
         
-        elif "submit" in request.form:
-            flash("Form validation failed, please check your input", "danger")
+        hashed_password = bcrypt.generate_password_hash(form.password.data).decode("utf-8")
+        face_descriptor = request.form.get("face_descriptor")
+        user = User(username=form.username.data, email=form.email.data, password=hashed_password, face_descriptor=json.dumps(json.loads(face_descriptor)) if face_descriptor else None)
+        db.session.add(user)
+        db.session.commit()
 
-        if not form.validate_on_submit():
-            print(form.errors)
-            flash(f"Form validation failed: {form.errors}", "danger")
-
+        flash("Registration successful please login", "success")
+        return redirect(url_for("login"))
     return render_template("register.html", form=form)
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route("/login", methods=["GET", "POST"])
 def login():
     form = LoginForm()
     if form.validate_on_submit():
@@ -142,65 +123,52 @@ def login():
             login_user(user)
             user.face_attempts = 0
             db.session.commit()
-            flash("✅ Login successful.", "success")
-            return redirect(url_for('dashboard'))
+            flash("Login successful", "success")
+            return redirect(url_for("dashboard"))
         else:
-            flash("❌ Incorrect username or password.", "danger")
-
+            flash("Incorrect username or password", "danger")
     return render_template("login.html", form=form)
 
-@app.route("/face_capture_temp", methods=["POST"])
-def face_capture_temp():
-    data = request.get_json(silent=True) or {}
-    image_data = data.get("image")
-    if not image_data:
-        return jsonify({"success": False, "message": "No image provided"}), 400
-    
-    try:
-        b64 = re.sub(r'^data:image/.+;base64,', '', image_data)
-        img_bytes = base64.b64decode(b64)
-        ok = save_temp_encoding_from_bytes(img_bytes)
-        if ok:
-            session["face_captured"] = True
-            return jsonify({"success": True})
-        else:
-            session.pop("face_captured", None)
-            return jsonify({"success": False, "message": "No face captured"}), 422
-    except Exception as e:
-        session.pop("face_captured", None)
-        return jsonify({"success": False, "message": f"Failed: {e}"}), 500
-    
-@app.route("/face_verify", methods=["POST"])
-def face_verify():
-    data = request.get_json(silent=True) or {}
-    image_data = data.get("image")
-    username = data.get("username", "").strip()
+@app.route("/face_login", methods=["POST"])
+def face_login():
+    data = request.get_json()
+    descriptor = np.array(data.get("descriptor"), dtype=np.float32)
+    users = User.query.filter(User.face_descriptor.isnot(None)).all()
 
-    if not username:
-        return jsonify({"success": False, "message": "Username required"}), 400
-    if not image_data:
-        return jsonify({"success": False, "message": "No image provided"}), 400
+    best_match = None
+    best_distance = float("inf")
+    for user in users:
+        stored_description = np.array(json.loads(user.face_descriptor), dtype=np.float32)
+        distance = euclidean(descriptor, stored_description)
+        if distance < best_distance:
+            best_distance = distance
+            best_match = user
+
+    if best_match and best_distance < 0.6:
+        login_user(best_match)
+        best_match.face_attempts = 0
+        db.session.commit()
+        return jsonify({"success": True, "username": best_match.username})
+    else:
+        return jsonify({"success": False, "message": "Face not recognized"})
+    
+@app.route("/verify_face_descriptor", methods=["POST"])
+def verify_face_descriptor():
+    data = request.get_json()
+    username = data.get("username")
+    descriptor = data.get("descriptor")
+    if not username or not descriptor:
+        return jsonify({"success": False, "message": "Missing username or descriptor"}), 400
     
     user = User.query.filter_by(username=username).first()
-    if not user:
-        return jsonify({"success": False, "message": "USer not found"}), 404
+    if not user or not user.face_descriptor:
+        return jsonify({"success": False, "message": "User not found or no face data"}), 404
     
-    if not user.face_unlock_enabled:
-        return jsonify({"success": False, "message": "Face unlock disabled"}), 403
-    
-    encoding_path = os.path.join("face_data", f"{user.id}_face.npy")
-    if not os.path.exists(encoding_path):
-        return jsonify({"success": False, "message": "No face data for this user"}), 404
-    
-    try:
-        b64 = re.sub(r'^data:image/.+;base64,', '', image_data)
-        img_bytes = base64.b64decode(b64)
-    except Exception:
-        return jsonify({"success": False, "message": "Invalid image payload"}), 400
-    
-    matched = verify_image_against_user_id(img_bytes, user.id)
+    stored_descriptor = np.array(json.loads(user.face_descriptor))
+    incoming_descriptor = np.array(descriptor)
+    distance = np.linalg.norm(stored_descriptor - incoming_descriptor)
 
-    if matched:
+    if distance < 0.6:
         login_user(user)
         user.face_attempts = 0
         db.session.commit()
@@ -212,107 +180,60 @@ def face_verify():
             user.face_unlock_enabled = False
             db.session.commit()
             handle_intrusion(user)
-            return jsonify({"success": False, "message": "Face unlock disbaled after 3 failed attempts"}), 423
-        else:
-            return jsonify({"success": False, "message": f"Face not recognized, attempt {user.face_attempts}/3"}), 401
-
-@app.route('/face-login', methods=['POST'])
-def face_login():
-    username = request.form.get('username', '').strip()
-    user = User.query.filter_by(username=username).first()
-
-    if not user:
-        flash("❌ Username not found.", "danger")
-        return redirect(url_for('login'))
-
-    if not user.face_unlock_enabled:
-        flash("🚫 Face unlock is disabled for this user.", "danger")
-        return redirect(url_for('login'))
+            return jsonify({"success": False, "message": "Face unlock disabled after 3 failed attempts"}), 423
+        return jsonify({"success": False, "message": f"Face mismatch, attempt {user.face_attempts}/3"}), 401
     
-    encoding_path = os.path.join('face_data', f"{user.id}_face.npy")
-    if not os.path.exists(encoding_path):
-        flash("⚠️ Face data not found for this user.", "danger")
-        return redirect(url_for('login'))
-    
-    matched_user_id, _  = verify_face_against_encodings()
-
-    if matched_user_id == user.id:
-        login_user(user)
-        user.face_attempts = 0
-        db.session.commit()
-        flash("Face unlock successful", "success")
-        return redirect(url_for('dashboard'))
-    else:
-        user.face_attempts += 1
-        db.session.commit()
-        if user.face_attempts >= 3:
-            user.face_unlock_enabled = False
-            db.session.commit()
-            handle_intrusion(user)
-            flash("🚫 Face unlock disabled after 3 failed attempts.", "danger")
-        else:
-            flash(f"⚠️ Face not recognized. Attempt {user.face_attempts}/3", "warning")
-        
-        return redirect(url_for('login'))
-
-@app.route('/dashboard', methods=['GET', 'POST'])
+@app.route("/dashboard", methods=["GET", "POST"])
 @login_required
 def dashboard():
     form = CredentialForm()
-
     if form.validate_on_submit():
         site_password = form.site_password.data
         password_strength = get_password_strength(site_password)
-        encrypted_pw = encrypt_password(site_password)
+        encrypted_password = encrypt_password(site_password)
 
         pwned_count = check_pwned(site_password)
         if pwned_count is None:
-            flash("⚠️ Could not verify password with HIBP. Try again later", "warning")
+            flash("Could not verify password with Have I Been Pwned, try again later", "warning")
         elif pwned_count > 0:
-            flash(f"🚨This password was found in {pwned_count} known breaches!", "danger")
+            flash(f"This password was found in {pwned_count} known breaches", "danger")
         else:
-            flash("✅ This password was not found in any breaches", "success")
+            flash("This password was not found in any breaches", "success")
 
-        new_cred = Credential(
-            site=form.site.data,
-            site_username=form.site_username.data,
-            site_password=encrypted_pw,
-            strength=password_strength,
-            user_id=current_user.id
-        )
+        new_cred = Credential(site=form.site.data, site_username=form.site_username.data, site_password=encrypt_password, strength=password_strength, user_ID=current_user.id)
         db.session.add(new_cred)
         db.session.commit()
-        flash('Credential saved', 'success')
-        return redirect(url_for('dashboard'))
-
+        flash("Credential saved", "success")
+        return redirect(url_for("dashboard"))
+    
     credentials = Credential.query.filter_by(user_id=current_user.id).all()
-    return render_template('dashboard.html', form=form, credentials=credentials)
+    return render_template("dashboard.html", form=form, credentials=credentials)
 
-@app.route('/reveal_password/<int:cred_id>', methods=['POST'])
+@app.route("/reveal_password/<int:cred_id>", methods=["POST"])
 @login_required
 def reveal_password(cred_id):
     credential = Credential.query.filter_by(id=cred_id, user_id=current_user.id).first_or_404()
     decrypted_password = decrypt_password(credential.site_password)
     return jsonify({"password": decrypted_password})
 
-@app.route('/delete/<int:cred_id>', methods=['GET', 'POST'])
+@app.route("/delete/<int:cred_id>", methods=["GET", "POST"])
 @login_required
 def delete_credential(cred_id):
     cred = Credential.query.filter_by(id=cred_id, user_id=current_user.id).first_or_404()
     db.session.delete(cred)
     db.session.commit()
-    flash('Credential deleted', 'info')
-    return redirect(url_for('dashboard'))
+    flash("Credential deleted", "info")
+    return redirect(url_for("dashboard"))
 
-@app.route('/logout', methods=['GET', 'POST'])
+@app.route("/logout", methods=["GET", "POST"])
 @login_required
 def logout():
     logout_user()
     session.clear()
-    flash("Logged out successfully.", "info")
-    return redirect(url_for('login'))
+    flash("Logged out successfully", "info")
+    return redirect(url_for("login"))
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     with app.app_context():
         db.create_all()
     app.run(debug=True)
