@@ -15,7 +15,7 @@ from wtforms import PasswordField, SubmitField, StringField, EmailField
 from wtforms.validators import DataRequired, EqualTo
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
-from utils import get_password_strength, check_pwned, send_intrusion_alert, handle_intrusion
+from utils import get_password_strength, check_pwned
 from scipy.spatial.distance import euclidean # type: ignore
 
 load_dotenv()
@@ -155,7 +155,6 @@ def verify_face_descriptor():
         if user.face_attempts >= 3:
             user.face_unlock_enabled = False
             db.session.commit()
-            handle_intrusion(user)
             return jsonify({"success": False, "message": "Face unlock disabled after 3 failed attempts"}), 423
         return jsonify({"success": False, "message": f"Face mismatch, attempt {user.face_attempts}/3"}), 401
     
