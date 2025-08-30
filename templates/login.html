@@ -77,47 +77,51 @@
     </div>
 </div>
 
+<script src="{{ url_for('static', filename='js/face-api.min.js') }}"></script>
+
 <script>
+    let modelsLoaded = false;
+
     Promise.all([
         faceapi.nets.tinyFaceDetector.loadFromUri('/static/models'),
         faceapi.nets.faceLandmark68Net.loadFromUri('/static/models'),
         faceapi.nets.faceRecognitionNet.loadFromUri('/static/models')
-    ]).then(() => console.log("Models loaded"))
-
+    ]).then(() => {
+        console.log("Models loaded"); 
+        modelsLoaded = true;
+    });
 
     const usernameInput = document.querySelector('input[name="username"]');
     const faceBtn = document.getElementById("faceLoginBtn");
-    faceBtn.disabled = true;
     const videoEl = document.getElementById("loginVideo");
+    let currentStream = null;
+
+    usernameInput.addEventListener("input", () => {
+        faceBtn.disabled = !usernameInput.value.trim() || !modelsLoaded;
+    });
 
     async function startCamera() {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            videoEl.srcObject = stream;
+            currentStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            videoEl.srcObject = currentStream;
             videoEl.style.display = "block";
-            return stream; 
+            await videoEl.play();
+            return currentStream; 
         } catch (e) {
             showToast("Camera access denied/unavailable", "danger");
             throw e;
         }
     }
 
-    function stopStream(stream) {
-        if (!stream) return;
-        stream.getTracks().forEach(t => t.stop());
+    function stopCamera() {
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+            currentStream = null;
+        }
         videoEl.style.display = "none";
     }
 
-    function captureFrame() {
-        const canvas = document.createElement("canvas");
-        canvas.width = videoEl.videoWidth || 320;
-        canvas.height = videoEl.videoHeight || 240;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-        return canvas.toDataURL("image/jpeg");
-    }
-
-    async function captureFaceDescriptor(videoEl) {
+    async function captureFaceDescriptor() {
         const detection = await faceapi.detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
         if (!detection) {
             showToast("No face detected, try again", "warning");
@@ -127,41 +131,38 @@
     }
 
     faceBtn.addEventListener("click", async () => {
-        const username = (usernameInput.value || '').trim();
+        const username = usernameInput.value.trim();
         if (!username) return showToast("Please enter your username first", "warning");
+        if (!modelsLoaded) return showToast("Face models not loaded yet", "warning");
 
-        let stream;
         try {
-            stream = await startCamera();
+            await startCamera();
             setTimeout(async () => {
-                const descriptor = await captureFaceDescriptor(videoEl);
-                if (descriptor) {
-                    try {
-                        const res = await fetch("/verify_face_descriptor", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ username, descriptor: Array.from(descriptor) })
-                        });
-                        const out = await res.json();
-                        if (out.success) {
-                            showToast("Face recognized", "success");
-                            window.location.href = out.redirect || "/dashboard";
-                        } else {
-                            showToast(out.message || "Face not recognized", "danger");
-                        }
-                    } catch (e) {
-                        showToast("Face verification failed", "danger");
-                    }
+                const descriptor = await captureFaceDescriptor();
+                if (!descriptor) {
+                    stopCamera();
+                    return;
                 }
-                stopStream(stream);
+
+                const res = await fetch("/verify_face_descriptor", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, descriptor: Array.from(descriptor) })
+                });
+
+                const out = await res.json();
+                if (out.success) {
+                    showToast("Face recognized", "success");
+                    window.location.href = out.redirect || "/dashboard";
+                } else {
+                    showToast(out.message || "Face not recognized", "danger");
+                }
+                stopCamera();
             }, 800);
         } catch (e) {
-            showToast(e.message, "danger");
+            showToast("Face login failed: " + e.message, "danger");
+            stopCamera();
         }
-    });
-
-    usernameInput.addEventListener("input", () => {
-        faceBtn.disabled = !usernameInput.value.trim();
     });
 
     function togglePassword() {

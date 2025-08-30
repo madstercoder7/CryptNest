@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 from flask import Flask, render_template, redirect, url_for, flash, request, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+from flask_migrate import Migrate # type: ignore
 from sqlalchemy import or_
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin, current_user
@@ -15,9 +15,8 @@ from wtforms import PasswordField, SubmitField, StringField, EmailField
 from wtforms.validators import DataRequired, EqualTo
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
-'''from face_unlock import capture_face_temp, move_temp_face_to_user, verify_face_against_encodings, save_temp_encoding_from_bytes, verify_image_against_user_id'''
 from utils import get_password_strength, check_pwned, send_intrusion_alert, handle_intrusion
-from scipy.spatial.distance import euclidean
+from scipy.spatial.distance import euclidean # type: ignore
 
 load_dotenv()
 
@@ -128,29 +127,6 @@ def login():
         else:
             flash("Incorrect username or password", "danger")
     return render_template("login.html", form=form)
-
-@app.route("/face_login", methods=["POST"])
-def face_login():
-    data = request.get_json()
-    descriptor = np.array(data.get("descriptor"), dtype=np.float32)
-    users = User.query.filter(User.face_descriptor.isnot(None)).all()
-
-    best_match = None
-    best_distance = float("inf")
-    for user in users:
-        stored_description = np.array(json.loads(user.face_descriptor), dtype=np.float32)
-        distance = euclidean(descriptor, stored_description)
-        if distance < best_distance:
-            best_distance = distance
-            best_match = user
-
-    if best_match and best_distance < 0.6:
-        login_user(best_match)
-        best_match.face_attempts = 0
-        db.session.commit()
-        return jsonify({"success": True, "username": best_match.username})
-    else:
-        return jsonify({"success": False, "message": "Face not recognized"})
     
 @app.route("/verify_face_descriptor", methods=["POST"])
 def verify_face_descriptor():

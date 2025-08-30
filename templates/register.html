@@ -142,13 +142,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             setTimeout(async () => {
                 const descriptor = await captureFaceDescriptor(video);
                 if (descriptor) {
-                    const username = document.querySelector('input[name="username"]').value;
-                    if (!username) {
-                        showToast("Enter username first", "warning");
-                        stopCam(stream);
-                        return;
-                    }
-
                     document.getElementById("face_descriptor").value = JSON.stringify(Array.from(descriptor));
                     showToast("Face captured successfully", "success");
                     faceCaptureBtn.textContent = "Recapture Face";
