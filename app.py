@@ -176,7 +176,7 @@ def dashboard():
         else:
             flash("This password was not found in any breaches", "success")
 
-        new_cred = Credential(site=form.site.data, site_username=form.site_username.data, site_password=encrypt_password, strength=password_strength, user_ID=current_user.id)
+        new_cred = Credential(site=form.site.data, site_username=form.site_username.data, site_password=encrypted_password, strength=password_strength, user_id=current_user.id)
         db.session.add(new_cred)
         db.session.commit()
         flash("Credential saved", "success")
@@ -190,7 +190,7 @@ def dashboard():
 def reveal_password(cred_id):
     credential = Credential.query.filter_by(id=cred_id, user_id=current_user.id).first_or_404()
     decrypted_password = decrypt_password(credential.site_password)
-    return jsonify({"password": decrypted_password})
+    return jsonify({"success": True, "password": decrypted_password})
 
 @app.route("/delete/<int:cred_id>", methods=["GET", "POST"])
 @login_required
