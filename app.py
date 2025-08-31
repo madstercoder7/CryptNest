@@ -7,16 +7,21 @@ from datetime import datetime
 from flask import Flask, render_template, redirect, url_for, flash, request, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate # type: ignore
-from sqlalchemy import or_
+from sqlalchemy import or_, text
+from sqlalchemy.exc import OperationalError
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin, current_user
 from flask_wtf import FlaskForm
 from wtforms import PasswordField, SubmitField, StringField, EmailField
-from wtforms.validators import DataRequired, EqualTo
+from wtforms.validators import DataRequired, EqualTo, Length, Email
 from dotenv import load_dotenv
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_limiter.errors import RateLimitExceeded
 from cryptography.fernet import Fernet
 from utils import get_password_strength, check_pwned
 from scipy.spatial.distance import euclidean # type: ignore
+from utils import send_reset_email, verify_reset_token, generate_reset_token, mail
 
 load_dotenv()
 
@@ -24,12 +29,34 @@ app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")  
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
+app.config["MAIL_SERVER"] = "smtp.gmail.com"
+app.config["MAIL_PORT"] = 587
+app.config["MAIL_USE_TLS"] = True
+app.config["MAIL_USE_SSL"] = False
+app.config["MAIL_USERNAME"] = os.getenv("MAIL_USERNAME")
+app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
+app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_USERNAME")
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+mail.init_app(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message_category = 'info'
+
+@app.before_request
+def warm_db():
+    if request.endpoint in ('static', None) or request.path == '/favicon.ico':
+        return
+    
+    try:
+        db.session.execute(text("SELECT 1"))
+    except OperationalError:
+        app.logger.warning("Database is waking up or unreachable")
 
 ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY')
 if not ENCRYPTION_KEY:
@@ -61,6 +88,17 @@ class Credential(db.Model):
     strength = db.Column(db.String(10))
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
+REDIS_URL = os.getenv("REDIS_URL")
+limiter = Limiter(get_remote_address, app=app, default_limits=["200 per day", "50 per day"], storage_uri=REDIS_URL)
+limiter.init_app(app)
+
+@app.errorhandler(RateLimitExceeded)
+def ratelimit_handler(e):
+    return jsonify({
+        "error": "Too many requests, please slow down",
+        "message": str(e.description)
+    }), 429
+
 # Load user
 @login_manager.user_loader
 def load_user(user_id):
@@ -85,12 +123,28 @@ class CredentialForm(FlaskForm):
     site_password = PasswordField('Password', validators=[DataRequired()])
     submit = SubmitField('Save')
 
+class ChangePasswordForm(FlaskForm):
+    current_password = PasswordField("Current Password", validators=[DataRequired()])
+    new_password = PasswordField("New Password", validators=[DataRequired(), Length(min=6)])
+    confirm_password = PasswordField("Confirm New Password", validators=[DataRequired(), EqualTo("new_password")])
+    submit = SubmitField("Change Password")
+
+class ForgotPasswordForm(FlaskForm):
+    email = StringField("Email", validators=[DataRequired(), Email()])
+    submit = SubmitField("Request Password Reset")
+
+class ResetPasswordForm(FlaskForm):
+    password = PasswordField("New Password", validators=[DataRequired(), Length(min=6)])
+    confirm_password = PasswordField("Confirm Password", validators=[DataRequired(), EqualTo("password")])
+    submit = SubmitField("Reset Password")
+
 # Routes
 @app.route('/')
 def home():
     return render_template("landing.html")
 
 @app.route("/register", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
 def register():
     form = RegisterForm()
     if form.validate_on_submit():
@@ -113,6 +167,7 @@ def register():
     return render_template("register.html", form=form)
 
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
 def login():
     form = LoginForm()
     if form.validate_on_submit():
@@ -158,6 +213,7 @@ def verify_face_descriptor():
         return jsonify({"success": False, "message": f"Face mismatch, attempt {user.face_attempts}/3"}), 401
     
 @app.route("/dashboard", methods=["GET", "POST"])
+@limiter.limit("20 per minute")
 @login_required
 def dashboard():
     form = CredentialForm()
@@ -198,6 +254,60 @@ def delete_credential(cred_id):
     db.session.commit()
     flash("Credential deleted", "info")
     return redirect(url_for("dashboard"))
+
+@app.route("/change_password", methods=["GET", "POST"])
+@login_required
+@limiter.limit("5 per minute")
+def change_password():
+    form = ChangePasswordForm()
+    if form.validate_on_submit():
+        if bcrypt.check_password_hash(current_user.password, form.current_password.data):
+            hashed_pw = bcrypt.generate_password_hash(form.new_password.data).decode("utf-8")
+            current_user.password = hashed_pw
+            db.session.commit()
+            flash("Your password has been updated", "success")
+            return redirect(url_for("profile"))
+        else:
+            flash("Incorrect current password", "danger")
+    return render_template("change_password.html", form=form)
+
+@app.route("/forgot_password", methods=["GET", "POST"])
+def forgot_password():
+    form = ForgotPasswordForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data).first()
+        if user:
+            token = generate_reset_token(user.email)
+            reset_url = url_for("reset_password", token=token, _external=True)
+            send_reset_email(user.email, reset_url)
+            flash(f"A password reset email has been sent to your registered email: {user.email}", "info")
+        else:
+            flash("Email not found", "danger")
+        return redirect(url_for("login"))
+    return render_template("forgot_password.html", form=form)
+
+@app.route("/reset_password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    email = verify_reset_token(token)
+    if not email:
+        flash("The reset link is invalid or has expired", "danger")
+        return redirect(url_for("forgot_password"))
+    
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=email).first_or_404()
+        hashed_pw = bcrypt.generate_password_hash(form.password.data).decode("utf-8")
+        user.password = hashed_pw
+        db.session.commit()
+        flash("Your password has been updated, you can now login", "success")
+        return redirect(url_for("login"))
+    return render_template("reset_password.html", form=form)
+
+@app.route("/profile")
+@limiter.limit("10 per minute")
+@login_required
+def profile():
+    return render_template("profile.html", user=current_user)
 
 @app.route("/logout", methods=["GET", "POST"])
 @login_required
